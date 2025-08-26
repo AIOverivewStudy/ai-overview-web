@@ -25,7 +25,7 @@ export default function Home() {
     initializeSession();
   }, []);
   return (
-    <div className="min-h-screen bg-white text-gray-800">
+    <div className="min-h-screen bg-white text-gray-800"  onContextMenu={(e) => e.preventDefault()}>
       {/* Header with search bar */}
       <header className="sticky top-0 z-10 bg-white border-b border-gray-200">
         <HeadSection></HeadSection>
