@@ -47,6 +47,38 @@ export function SearchPageTemplate({ config }: SearchPageTemplateProps) {
   // For simple pages (like page 2, 3, 4), show all results without sections
   const isSimplePage = pageNumber > 1;
 
+  // For middle-ai-overview, we need to split the layout into two main sections
+  if (!isSimplePage && showAiOverview && aiOverviewPosition === 'middle') {
+    return (
+      <SearchPageLayout searchTabsVariant={searchTabsVariant}>
+        {/* First main section - before AI Overview */}
+        <div className="container mx-auto px-15 py-4">
+          <div className="max-w-2xl">
+            <SearchResults results={beforePeopleAlsoAsk} page={pageNumber} />
+            <SearchResults results={beforeVideos} page={pageNumber} />
+            {showVideos && <VideosSection />}
+          </div>
+        </div>
+        
+        {/* AI Overview Section - full width */}
+        <div className="px-42">
+          <ConditionalAiOverview position="middle" show={true} />
+        </div>
+        
+        {/* Second main section - after AI Overview */}
+        <div className="container mx-auto px-15 py-4">
+          <div className="max-w-2xl">
+            <SearchResults results={beforePeopleAlsoSearchFor} page={pageNumber} />
+            {showDiscussions && <ConditionalDiscussions topic={topic} />}
+            <SearchResults results={bottomResults} page={pageNumber} />
+            <Pagination />
+          </div>
+        </div>
+      </SearchPageLayout>
+    )
+  }
+
+  // For all other cases (top, none, or simple pages)
   return (
     <SearchPageLayout searchTabsVariant={searchTabsVariant}>
       {/* AI Overview Section - only show at top */}
@@ -60,25 +92,13 @@ export function SearchPageTemplate({ config }: SearchPageTemplateProps) {
             // Simple layout for pages 2, 3, 4
             <SearchResults results={allResults} page={pageNumber} />
           ) : (
-            // Complex layout for page 1
+            // Complex layout for page 1 (top-ai-overview or no-ai-overview)
             <>
               <SearchResults results={beforePeopleAlsoAsk} page={pageNumber} />
-              
-              {/* AI Overview in middle position */}
-              {showAiOverview && aiOverviewPosition === 'middle' && (
-                <ConditionalAiOverview position="middle" show={true} />
-              )}
-              
               <SearchResults results={beforeVideos} page={pageNumber} />
-              
-              {/* Videos Section */}
               {showVideos && <VideosSection />}
-              
               <SearchResults results={beforePeopleAlsoSearchFor} page={pageNumber} />
-              
-              {/* Discussions and Forums */}
               {showDiscussions && <ConditionalDiscussions topic={topic} />}
-              
               <SearchResults results={bottomResults} page={pageNumber} />
             </>
           )}
