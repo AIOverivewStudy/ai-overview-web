@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect } from "react"
 import Image from "next/image"
 import { MoreVertical, ChevronDown, LinkIcon, X } from "lucide-react"
-import Link from "next/link"
 import { WebsiteFavicon } from "@/components/website-favicon"
 import { getWebsiteName } from "@/lib/favicon-service"
 import { usePathname } from "next/navigation"

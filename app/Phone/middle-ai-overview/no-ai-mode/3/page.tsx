@@ -4,7 +4,7 @@ import { Pagination } from "@/components/pagination"
 import { SearchTabs } from "@/components/search-tabs-no-ai-mode"
 
 
-import searchData from "@/data/Laptop/3.json"
+
 import HeadSection from "@/components/head-section"
 import { usePathname } from "next/navigation"
 
