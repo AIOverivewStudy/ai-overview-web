@@ -1,0 +1,8 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+
+如果你在对 page.tsx 进行重构的话，你一定要确保之前的 page.tsx 文件可以完全被你的复用组件所取代，一定要阅读整个 page.tsx 文件确保没有任何逻辑被遗漏。一定要逐一检查。
+文件不需要备份，我有 git。
