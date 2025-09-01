@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Search } from "lucide-react" // optional, you can change icon
+import { TrackedLink } from "./tracked-link"
 
 export function PeopleAlsoSearch() {
   const pathname = usePathname()
@@ -15,7 +16,7 @@ export function PeopleAlsoSearch() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {peopleAlsoSearchData.map((item: any, index: number) => (
-          <Link
+          <TrackedLink
             key={index}
             href="#"
             className="bg-gray-50 rounded-lg px-4 py-3 hover:bg-gray-100 border border-gray-200 shadow-sm flex items-center justify-between"
@@ -28,7 +29,7 @@ export function PeopleAlsoSearch() {
               )}
             </div>
             <Search className="w-4 h-4 text-gray-500" />
-          </Link>
+          </TrackedLink>
         ))}
       </div>
     </div>

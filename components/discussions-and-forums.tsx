@@ -1,9 +1,9 @@
 'use client'
 
 import { useState } from "react"
-import Link from "next/link"
+
 import { usePathname } from "next/navigation"
-import { ChevronDown, ChevronRight, ChevronUp, ExternalLink } from "lucide-react"
+import { ChevronDown, ChevronRight, ChevronUp } from "lucide-react"
 import { TrackedLink } from "@/components/tracked-link"
 
 export function DiscussionsAndForums() {
@@ -62,9 +62,14 @@ export function DiscussionsAndForums() {
                         ✅ Top answer
                       </div>
                     )}
-                    <Link href={answer.url} className="hover:underline block mb-2">
+                    <TrackedLink 
+                      href={answer.url} 
+                      componentName="DiscussionsAndForums" 
+                      linkIndex={idx}
+                      className="hover:underline block mb-2"
+                    >
                       {answer.text}
-                    </Link>
+                    </TrackedLink>
                     {answer.note && (
                       <div className="text-xs text-gray-500">{answer.note.join(" • ")}</div>
                     )}
