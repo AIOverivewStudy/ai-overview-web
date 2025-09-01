@@ -4,12 +4,21 @@ import { SearchTabs } from "@/components/search-tabs"
 import { useState } from "react"
 import Link from "next/link"
 import { Mic, MoreVertical, Clock, Edit, X, LinkIcon } from "lucide-react"
-import aiOverviewData from "@/data/Car-vehicle/ai-mode.json"
 import { TrackedLink } from "@/components/tracked-link"
 import { WebsiteFavicon } from "@/components/website-favicon"
 import { getWebsiteName } from "@/lib/favicon-service"
+import { trackShowAllClick } from "@/lib/analytics"
+import { useParams, notFound } from "next/navigation"
 
-import { trackShowAllClick} from "@/lib/analytics"
+// 动态数据加载函数
+function loadAiModeData(topic: string) {
+  try {
+    return require(`@/data/${topic}/ai-mode.json`);
+  } catch (error) {
+    console.error(`Failed to load AI mode data for ${topic}:`, error);
+    return null;
+  }
+}
 
 interface TextBlock {
   type: string
@@ -48,12 +57,79 @@ interface AIOverviewData {
   references: Reference[]
 }
 
+interface PageConfig {
+  title: string
+  imagePath: string
+}
+
+// 页面配置映射
+const getPageConfig = (topic: string): PageConfig | null => {
+  const configs: Record<string, PageConfig> = {
+    'Car-vehicle': {
+      title: 'Is there any popular recommendation for commuter car choice',
+      imagePath: `/Car-vehicle/ai-mode-images`
+    },
+    'Chatgpt': {
+      title: 'What is chatgpt',
+      imagePath: `/Chatgpt/ai-mode-images`
+    },
+    'Cruise': {
+      title: 'Is there any popular recommendation for cruise choice',
+      imagePath: `/Cruise/ai-mode-images`
+    },
+    'Laptop': {
+      title: 'Is there any popular recommendation for laptop choice',
+      imagePath: `/Laptop/ai-mode-images`
+    },
+    'March-madness': {
+      title: 'introduce march madness',
+      imagePath: `/March-madness/ai-mode-images`
+    },
+    'NFL-game': {
+      title: 'what is nfl game',
+      imagePath: `/NFL-game/ai-mode-images`
+    },
+    'Phone': {
+      title: 'Is there any popular recommendation for phone choice?',
+      imagePath: `/Phone/ai-mode-images`
+    },
+    'Taylor-swift': {
+      title: 'Introduce Taylor Swift',
+      imagePath: `/Taylor-swift/ai-mode-images`
+    }
+  }
+  
+  return configs[topic] || null
+}
+
+// 验证有效的topic
+const isValidTopic = (topic: string): boolean => {
+  const validTopics = ['Car-vehicle', 'Chatgpt', 'Cruise', 'Laptop', 'March-madness', 'NFL-game', 'Phone', 'Taylor-swift']
+  return validTopics.includes(topic)
+}
 
 export default function AiModePage() {
-  const [textContentHeight, setTextContentHeight] = useState<number>(0)
-  const data = aiOverviewData as AIOverviewData
+  const params = useParams()
+  const topic = params.topic as string
+  
+  // 验证topic
+  if (!isValidTopic(topic)) {
+    notFound()
+  }
+  
+  const pageConfig = getPageConfig(topic)
+  if (!pageConfig) {
+    notFound()
+  }
+  
+  // 动态加载数据
+  const data = loadAiModeData(topic) as AIOverviewData | null
+  if (!data) {
+    notFound()
+  }
   const [showAllReferences, setShowAllReferences] = useState(false)
   const [filteredReferenceIndexes, setFilteredReferenceIndexes] = useState<number[] | null>(null)
+  
   const displayedReferences = (() => {
     if (filteredReferenceIndexes) {
       return data.references.filter((ref) => filteredReferenceIndexes.includes(ref.index))
@@ -63,8 +139,9 @@ export default function AiModePage() {
     }
     return data.references
   })()
+  
   const getImageForReference = (referenceIndex: number) => {
-    return `/Car-vehicle/ai-mode-images/${referenceIndex}.jpeg`
+    return `${pageConfig.imagePath}/${referenceIndex}.jpeg`
   }
 
   const renderHighlightedText = (text: string, highlightedWords: string[] = []) => {
@@ -94,7 +171,6 @@ export default function AiModePage() {
     }
   }
 
-
   const renderReferenceLink = (referenceIndexes?: number[]) => {
     if (!referenceIndexes) return null
 
@@ -107,6 +183,7 @@ export default function AiModePage() {
       </button>
     )
   }
+  
   const renderTextBlock = (block: TextBlock, index: number) => {
     switch (block.type) {
       case "paragraph":
@@ -115,14 +192,12 @@ export default function AiModePage() {
             <div className="mb-6">
               <h2 key={index} className="text-xl font-medium text-gray-900 mb-4">
                 {block.title}
-
               </h2>
               <p className="text-gray-700 whitespace-pre-wrap">
                 {block.snippet}
                 {renderReferenceLink(block.reference_indexes)}
               </p>
             </div>
-
           )
         }
         if (block.snippet) {
@@ -137,14 +212,12 @@ export default function AiModePage() {
 
       case "list":
         if (block.list) {
-          // inside renderTextBlock -> case "list":
           return (
             <div key={index} className="mb-8">
               {block.list.map((item, itemIndex) => {
                 if (item.type === "list" && item.list) {
                   return (
                     <div key={itemIndex} className="mb-6">
-                      {/* move link inline with title */}
                       <h3 className="text-lg font-medium text-gray-900 mb-4">
                         {item.title}
                         {renderReferenceLink(item.reference_indexes)}
@@ -165,12 +238,10 @@ export default function AiModePage() {
                           </li>
                         ))}
                       </ul>
-                      {/* removed extra renderReferenceLink(...) here */}
                     </div>
                   )
                 }
 
-                // regular list item: put link next to title too
                 return (
                   <div key={itemIndex} className="mb-6">
                     <h3 className="text-lg font-medium text-gray-900 mb-4">
@@ -223,7 +294,7 @@ export default function AiModePage() {
   }
 
   return (
-    <div className="min-h-screen bg-white text-gray-800"  onContextMenu={(e) => e.preventDefault()}>
+    <div className="min-h-screen bg-white text-gray-800" onContextMenu={(e) => e.preventDefault()}>
       {/* Header */}
       <header className="border-b border-gray-200">
         <div className="flex items-center px-6 py-4">
@@ -299,7 +370,7 @@ export default function AiModePage() {
             {/* Scrollable content */}
             <div className="flex-1 overflow-y-auto pr-2 min-h-0">
               <h1 className="text-3xl font-normal text-gray-900 mb-6">
-                Is there any popular recommendation for commuter car choice
+                {pageConfig.title}
               </h1>
               <div className="prose prose-lg max-w-none">
                 {data.text_blocks.map((block, index) => renderTextBlock(block, index))}
@@ -411,7 +482,6 @@ export default function AiModePage() {
                           setShowAllReferences(true);
                           trackShowAllClick("AiMode");
                         }}
-
                         className="flex items-center justify-center w-full bg-blue-100 text-blue-700 py-3 rounded-full hover:bg-blue-200"
                       >
                         <span>Show all</span>
@@ -437,6 +507,5 @@ export default function AiModePage() {
         </div>
       </div>
     </div>
-
   )
 }
