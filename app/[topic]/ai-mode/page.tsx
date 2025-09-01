@@ -2,7 +2,6 @@
 import Image from "next/image"
 import { SearchTabs } from "@/components/search-tabs"
 import { useState } from "react"
-import Link from "next/link"
 import { Mic, MoreVertical, Clock, Edit, X, LinkIcon } from "lucide-react"
 import { TrackedLink } from "@/components/tracked-link"
 import { WebsiteFavicon } from "@/components/website-favicon"
@@ -298,9 +297,9 @@ export default function AiModePage() {
       {/* Header */}
       <header className="border-b border-gray-200">
         <div className="flex items-center px-6 py-4">
-          <Link href="/" className="mr-8">
+          <div className="mr-8">
             <Image src="/google-logo.png" alt="Google" width={92} height={30} className="h-8 w-auto" />
-          </Link>
+          </div>
           <div className="flex-1 max-w-2xl">{/* Search tabs only, no search bar on AI Mode page */}</div>
           <div className="ml-auto flex items-center gap-4">
             <button className="p-2 rounded-full hover:bg-gray-100">

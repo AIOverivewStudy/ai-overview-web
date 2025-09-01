@@ -10,9 +10,9 @@ export default function HeadSection() {
     const videoData = require(`@/data/${pageName}/head-section.json`)["headline"];
   return (
         <div className="px-16 py-4 flex items-center">
-          <Link href="/" className="mr-10">
+          <div className="mr-10">
             <Image src="/google-logo.png" alt="Google" width={92} height={30} className="h-7 w-auto" />
-          </Link>
+          </div>
           <SearchBar defaultValue={videoData} />
           <div className="ml-auto flex items-center gap-4">
             <button className="p-2 rounded-full hover:bg-gray-100">

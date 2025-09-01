@@ -66,10 +66,10 @@ export interface TaskSession {
   page_click_statics_4: number
 }
 
-// Generate a unique ID for each link click
-const generateLinkId = (event: LinkClickEvent): string => {
-  return `${event.componentName}-${event.linkIndex}-${event.timestamp}`
-}
+// Generate a unique ID for each link click (currently unused but may be needed later)
+// const generateLinkId = (event: LinkClickEvent): string => {
+//   return `${event.componentName}-${event.linkIndex}-${event.timestamp}`
+// }
 
 // Generate participant ID based on device/browser fingerprint
 const generateParticipantId = (): string => {
@@ -140,7 +140,7 @@ const saveSessionToDatabase = async (session: TaskSession): Promise<boolean> => 
   }
 }
 
-function pad(num) {
+function pad(num: number) {
   return num.toString().padStart(2, "0")
 }
 
@@ -192,7 +192,7 @@ const createNewSession = async (): Promise<TaskSession> => {
 
 // Get current task session
 const getCurrentTaskSession = async (): Promise<TaskSession> => {
-  const { topic, treatmentGroup, participantId, sid } = extractUrlParams()
+  const { topic, treatmentGroup } = extractUrlParams()
   const taskType = getTaskType(topic)
 
   // Try to get existing session
@@ -214,7 +214,7 @@ const getCurrentTaskSession = async (): Promise<TaskSession> => {
 }
 
 // Store link click in localStorage
-export const trackLinkClick = async (componentName: string, linkIndex: number, linkText: string, linkUrl: string): Promise<string> => {
+export const trackLinkClick = async (componentName: string, linkIndex: number, linkText: string): Promise<string> => {
   console.log("Tracking link click");
 
   const session = await getCurrentTaskSession()
@@ -294,11 +294,16 @@ export const trackLinkClick = async (componentName: string, linkIndex: number, l
   localStorage.setItem("current_click_event", JSON.stringify(clickEvent));
 
   if(componentName.includes("SearchResults")){
-    getPageNumber(componentName) === 1 ? session.page_click_statics_1++ :
-    getPageNumber(componentName) === 2 ? session.page_click_statics_2++:
-    getPageNumber(componentName) === 3 ? session.page_click_statics_3++:
-    session.page_click_statics_4++
-
+    const pageNum = getPageNumber(componentName)
+    if (pageNum === 1) {
+      session.page_click_statics_1++
+    } else if (pageNum === 2) {
+      session.page_click_statics_2++
+    } else if (pageNum === 3) {
+      session.page_click_statics_3++
+    } else {
+      session.page_click_statics_4++
+    }
   }
 
   console.log("当前session.click_sequence:", session);
@@ -307,18 +312,18 @@ export const trackLinkClick = async (componentName: string, linkIndex: number, l
 
   console.log(`Tracked click: ${pageId} - "${linkText}", updating database...`)
 
-  // Save updated session to database
-  // const result = await saveSessionToDatabase(session)
-  // console.log('保存结果', result);
+  // Add click event to session
+  session.click_sequence.push(clickEvent)
+
+  // Save updated session to database and wait for completion
+  const result = await saveSessionToDatabase(session)
+  console.log('保存结果', result);
 
   // Store click info for dwell time calculation
   const clickId = `${session.sid}_${session.participant_id}_${session.task_topic}_${session.treatment_group}_${clickEvent.click_order}`
   localStorage.setItem("current_click_id", clickId)
   localStorage.setItem("click_start_time", Date.now().toString())
-  // if (result) {
-  //   return clickId
-  // }
-
+  
   return clickId
 }
 

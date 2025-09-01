@@ -1,6 +1,5 @@
 'use client'
 
-import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Search } from "lucide-react" // optional, you can change icon
 import { TrackedLink } from "./tracked-link"
@@ -18,7 +17,9 @@ export function PeopleAlsoSearch() {
         {peopleAlsoSearchData.map((item: any, index: number) => (
           <TrackedLink
             key={index}
-            href="#"
+            href={item.url}
+            componentName="PeopleAlsoSearch"
+            linkIndex={index}
             className="bg-gray-50 rounded-lg px-4 py-3 hover:bg-gray-100 border border-gray-200 shadow-sm flex items-center justify-between"
           >
             <div className="text-gray-800 text-sm">

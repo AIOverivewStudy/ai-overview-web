@@ -6,10 +6,18 @@ import { usePathname } from "next/navigation"
 import { ChevronDown, ChevronRight, ChevronUp } from "lucide-react"
 import { TrackedLink } from "@/components/tracked-link"
 
+export interface DiscussionsAndForumsData {
+  url: string;
+  title: string;
+  source: string;
+  note: string[];
+  dropdown: {text: string, url: string, "Top answer": boolean, note: string[]}[];
+}
+
 export function DiscussionsAndForums() {
   const pathname = usePathname();
   const pageName = pathname.split("/").slice(1, 2).join("-");
-  const discussionData = require(`@/data/${pageName}/discussions-and-forums.json`);
+  const discussionData = require(`@/data/${pageName}/discussions-and-forums.json`) as DiscussionsAndForumsData[];
 
   const [openIndex, setOpenIndex] = useState<number | null>(null)
 
@@ -28,7 +36,7 @@ export function DiscussionsAndForums() {
       <h2 className="text-2xl mb-4 font-semibold">Discussions and forums</h2>
 
       <div className="space-y-6">
-        {discussionData.map((item: any, index: number) => (
+        {discussionData.map((item, index) => (
           <div key={index} className="mb-6">
             <div className="flex items-start justify-between">
               <div>
@@ -55,7 +63,7 @@ export function DiscussionsAndForums() {
 
             {openIndex === index && (
               <div className="mt-4 grid md:grid-cols-3 gap-4">
-                {item.dropdown.map((answer: any, idx: number) => (
+                {item.dropdown.map((answer, idx: number) => (
                   <div key={idx} className="text-sm rounded-md p-3 bg-gray-50 relative">
                     {answer["Top answer"] && (
                       <div className="text-xs text-black font-medium mb-2">
