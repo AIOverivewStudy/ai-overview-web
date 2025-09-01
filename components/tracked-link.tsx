@@ -14,10 +14,7 @@ interface TrackedLinkProps {
 }
 
 export function TrackedLink ({ href, componentName, linkIndex, className, children }: TrackedLinkProps) {
-  const handleClick = async (event: React.MouseEvent<HTMLAnchorElement>) => {
-    // 阻止默认的跳转行为
-    event.preventDefault()
-    
+  const handleClick = async () => {
     // Extract text content for tracking
     let linkText = ""
     if (typeof children === "string") {
@@ -35,56 +32,23 @@ export function TrackedLink ({ href, componentName, linkIndex, className, childr
       linkText = "[Complex content]"
     }
 
+    // 对于所有链接，让默认行为处理，但仍然追踪
     try {
-      // 等待追踪完成
-      const result = await trackLinkClick(componentName, linkIndex, linkText)
-      console.log("Tracking result:", result);
-      
-      // 追踪完成后进行跳转
-      if (href.startsWith('http://') || href.startsWith('https://') || href.includes('.html')) {
-        // 外部链接或静态文件，使用 window.open
-        window.open(href, '_blank', 'noopener,noreferrer')
-      } else {
-        // 内部路由，使用 window.location
-        window.location.href = href
-      }
+      await trackLinkClick(componentName, linkIndex, linkText)
+      console.log("Link clicked and tracked:", linkText);
     } catch (error) {
       console.error("Tracking failed:", error)
-      // 即使追踪失败，也要进行跳转（用户体验优先）
-      if (href.startsWith('http://') || href.startsWith('https://') || href.includes('.html')) {
-        window.open(href, '_blank', 'noopener,noreferrer')
-      } else {
-        window.location.href = href
-      }
     }
   }
 
-  // 检查是否是静态 HTML 文件或外部链接
-  const isStaticHtml = href.includes('.html') || 
-                       href.includes('/CmuWebPageshmtl/') || 
-                       href.includes('/AI-overviewHtml/') || 
-                       href.includes('/AI-modeHtml/') ||
-                       href.startsWith('http://') ||
-                       href.startsWith('https://')
-
-  // 对于静态 HTML 文件或外部链接，使用原生 a 标签
-  if (isStaticHtml) {
-    return (
-      <a 
-        href={href} 
-        className={className} 
-        onClick={handleClick} 
-        rel="noopener noreferrer"
-        target="_blank"
-      >
-        {children}
-      </a>
-    )
-  }
-
-  // 对于正常的路由链接，使用 Next.js Link
+  // 对于所有链接（包括外部链接、内部路由和静态文件），都使用iframe包装
+  // 对于外部链接，使用查询参数传递URL
+  const iframePath = href.startsWith('http://') || href.startsWith('https://') 
+    ? `/iframe?url=${encodeURIComponent(href)}` 
+    : `/iframe${href}`
+    
   return (
-    <Link href={href} className={className} onClick={handleClick} rel="noopener noreferrer">
+    <Link href={iframePath} className={className} onClick={handleClick}>
       {children}
     </Link>
   )
