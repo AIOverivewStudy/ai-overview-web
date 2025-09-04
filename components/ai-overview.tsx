@@ -280,7 +280,7 @@ export function AiOverview() {
               </div>
             )}
 
-            {!showMore ? (
+            {!showMore && (
               <button
                 onClick={handleShowMore}
                 className="flex items-center justify-center w-full bg-gray-100 text-gray-800 py-3 rounded-full hover:bg-gray-200 mt-4 border border-gray-300"
@@ -288,126 +288,6 @@ export function AiOverview() {
                 <span>Show more</span>
                 <ChevronDown className="h-5 w-5 ml-1" />
               </button>
-            ) : (
-              <div className="border-t border-gray-200 mt-8 pt-6">
-                <button className="flex items-center justify-center w-full max-w-md mx-auto bg-blue-50 text-blue-700 py-3 rounded-full hover:bg-blue-100 mb-4">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="mr-2"
-                  >
-                    <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
-                    <path d="M3 3v5h5"></path>
-                    <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
-                    <path d="M16 16h5v5"></path>
-                  </svg>
-                  <span>Dive deeper in AI Mode</span>
-                </button>
-
-                <div className="flex items-center justify-center text-sm text-gray-500 mb-4">
-                  <span>AI responses may include mistakes.</span>
-                </div>
-
-                <div className="flex items-center justify-center space-x-4">
-                  <button className="flex items-center text-gray-600 hover:text-gray-800 px-4 py-2 rounded-full border border-gray-300">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="mr-1"
-                    >
-                      <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"></path>
-                      <path d="M7 7h.01"></path>
-                    </svg>
-                    Export
-                  </button>
-                  <button className="flex items-center text-gray-600 hover:text-gray-800 px-4 py-2 rounded-full border border-gray-300">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="mr-1"
-                    >
-                      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                      <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                      <polyline points="7 3 7 8 15 8"></polyline>
-                    </svg>
-                    Save
-                  </button>
-                  <button className="flex items-center text-gray-600 hover:text-gray-800 p-2 rounded-full border border-gray-300">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M10 2v8a2 2 0 0 1-2 2H2"></path>
-                      <path d="M4.73 15.54A6.97 6.97 0 0 1 2 10a7 7 0 0 1 7-7"></path>
-                      <path d="M14.59 11.17A6.97 6.97 0 0 0 17.3 15.54"></path>
-                      <path d="M22 10a7 7 0 0 0-7-7"></path>
-                      <path d="M2 10v8a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-8"></path>
-                      <path d="M6 20v-4"></path>
-                      <path d="M18 20v-4"></path>
-                      <path d="M14 8v4"></path>
-                      <path d="M10 8v4"></path>
-                    </svg>
-                  </button>
-                  <button className="flex items-center text-gray-600 hover:text-gray-800 p-2 rounded-full border border-gray-300">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
-                    </svg>
-                  </button>
-                  <button className="flex items-center text-gray-600 hover:text-gray-800 p-2 rounded-full border border-gray-300">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"></path>
-                    </svg>
-                  </button>
-                </div>
-              </div>
             )}
           </div>
 
