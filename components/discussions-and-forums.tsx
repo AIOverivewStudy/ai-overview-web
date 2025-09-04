@@ -1,10 +1,11 @@
 'use client'
 
 import { useState } from "react"
-
+import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { ChevronDown, ChevronRight, ChevronUp } from "lucide-react"
 import { TrackedLink } from "@/components/tracked-link"
+import { trackShowMoreClick } from "@/lib/analytics"
 
 export interface DiscussionsAndForumsData {
   url: string;
@@ -45,7 +46,7 @@ export function DiscussionsAndForums() {
                 </TrackedLink>
                 <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
                   {getSourceIcon(item.source) && (
-                    <img src={getSourceIcon(item.source) as string} alt={item.source} className="w-4 h-4" />
+                    <Image src={getSourceIcon(item.source) as string} alt={item.source} width={16} height={16} className="w-4 h-4" />
                   )}
                   <span className="font-medium">{item.source}</span>
                   <span>•</span>
@@ -90,7 +91,10 @@ export function DiscussionsAndForums() {
       </div>
 
       <div className="mt-8 flex justify-center">
-        <button className="px-6 py-2 rounded-full bg-gray-100 hover:bg-gray-200 text-sm font-medium text-gray-700 flex items-center gap-2">
+        <button 
+          onClick={() => trackShowMoreClick("DiscussionsAndForums")}
+          className="px-6 py-2 rounded-full bg-gray-100 hover:bg-gray-200 text-sm font-medium text-gray-700 flex items-center gap-2"
+        >
           See more <ChevronRight size={16} />
         </button>
       </div>

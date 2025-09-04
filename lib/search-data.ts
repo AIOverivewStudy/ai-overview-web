@@ -2,20 +2,44 @@
  * Utility functions for loading and processing search data
  */
 
+export interface SitelinkItem {
+  title: string
+  link: string
+}
+
+export interface Sitelinks {
+  inline?: SitelinkItem[]
+}
+
+export interface SearchResult {
+  position: number
+  title: string
+  link: string
+  redirect_link?: string
+  displayed_link: string
+  thumbnail?: string
+  favicon?: string
+  date?: string
+  snippet: string
+  snippet_highlighted_words?: string[]
+  sitelinks?: Sitelinks
+}
+
 export interface SearchDataSegments {
-  beforePeopleAlsoAsk: any[]
-  beforeVideos: any[]
-  beforePeopleAlsoSearchFor: any[]
-  bottomResults: any[]
-  allResults: any[]
+  beforePeopleAlsoAsk: SearchResult[]
+  beforeVideos: SearchResult[]
+  beforePeopleAlsoSearchFor: SearchResult[]
+  bottomResults: SearchResult[]
+  allResults: SearchResult[]
 }
 
 /**
  * Load search data for a specific topic and page number
  */
-export function loadSearchData(topic: string, pageNumber: number) {
+export function loadSearchData(topic: string, pageNumber: number): SearchResult[] {
   try {
-    return require(`@/data/${topic}/${pageNumber}.json`);
+    const data = require(`@/data/${topic}/${pageNumber}.json`);
+    return data as SearchResult[];
   } catch (error) {
     console.error(`Failed to load search data for ${topic}/${pageNumber}:`, error);
     return [];
@@ -25,7 +49,7 @@ export function loadSearchData(topic: string, pageNumber: number) {
 /**
  * Process search data into segments for different page layouts
  */
-export function processSearchData(searchData: any[]): SearchDataSegments {
+export function processSearchData(searchData: SearchResult[]): SearchDataSegments {
   return {
     beforePeopleAlsoAsk: searchData.slice(0, 1),
     beforeVideos: searchData.slice(1, 2),

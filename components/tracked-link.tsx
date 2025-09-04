@@ -3,10 +3,11 @@
 import type { ReactNode } from "react"
 import Link from "next/link"
 import { trackLinkClick } from "@/lib/analytics"
+import type { ComponentName } from "@/types/api"
 
 interface TrackedLinkProps {
   href: string
-  componentName: string
+  componentName: ComponentName
   linkIndex: number
   linkPage?: number
   className?: string

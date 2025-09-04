@@ -83,7 +83,7 @@ export function SearchResults({ results, page }: SearchResultsProps) {
               <h3 className="text-xl mb-1">
                 <TrackedLink
                   href={result.link}
-                  componentName={"SearchResults_"+ page}
+                  componentName={`SearchResults_${page}`}
                   linkIndex={result.position}
                   className="text-blue-800 hover:underline"
                 >
@@ -114,7 +114,7 @@ result.snippet.split(
                     <TrackedLink
                       key={index}
                       href={sitelink.link}
-                      componentName={"SearchResults-Sitelinks_"+page}
+                      componentName={`SearchResults-Sitelinks_${page}`}
                       linkIndex={index}
                       className="text-blue-800 text-sm hover:underline"
                     >

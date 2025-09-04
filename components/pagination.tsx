@@ -1,6 +1,6 @@
 "use client"
 
-import Link from "next/link"
+
 import { usePathname } from "next/navigation"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { TrackedLink } from "./tracked-link"

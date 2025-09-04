@@ -52,6 +52,11 @@ export function AiOverview() {
   const pathname = usePathname();
   const pageName = pathname.split("/").slice(1, 2).join("-");
   const aiOverviewData = require(`@/data/${pageName}/ai-overview.json`);
+  
+  // 生成当前页面的唯一标识符（用于localStorage key）
+  const pageKey = `ai_overview_${pathname.replace(/\//g, '_')}`
+  
+  // 初始状态始终为false，避免水合错误
   const [showMore, setShowMore] = useState(false)
   const [showAllReferences, setShowAllReferences] = useState(false)
   const [filteredReferenceIndexes, setFilteredReferenceIndexes] = useState<number[] | null>(null)
@@ -65,6 +70,19 @@ export function AiOverview() {
       setTextContentHeight(textContentRef.current.offsetHeight)
     }
   }, [showMore])
+
+  // 在客户端挂载后恢复localStorage中的状态
+  useEffect(() => {
+    const savedShowMore = localStorage.getItem(`${pageKey}_showMore`) === 'true'
+    const savedShowAllReferences = localStorage.getItem(`${pageKey}_showAllReferences`) === 'true'
+    
+    if (savedShowMore) {
+      setShowMore(true)
+    }
+    if (savedShowAllReferences) {
+      setShowAllReferences(true)
+    }
+  }, [pageKey])
 
   const handleReferenceClick = (referenceIndexes?: number[]) => {
     if (filteredReferenceIndexes && JSON.stringify(filteredReferenceIndexes) === JSON.stringify(referenceIndexes)) {
@@ -102,6 +120,8 @@ export function AiOverview() {
 
   const handleShowMore = () => {
     setShowMore(true)
+    // 保存状态到localStorage
+    localStorage.setItem(`${pageKey}_showMore`, 'true')
     // Track the "Show more" button click
     trackShowMoreClick("AiOverview")
   }
@@ -503,6 +523,8 @@ export function AiOverview() {
                     <button
                       onClick={() => {
                         setShowAllReferences(true); 
+                        // 保存状态到localStorage
+                        localStorage.setItem(`${pageKey}_showAllReferences`, 'true')
                         trackShowAllClick("AiOverview");
                       }}
                       className="flex items-center justify-center w-full bg-blue-100 text-blue-700 py-3 rounded-full hover:bg-blue-200"

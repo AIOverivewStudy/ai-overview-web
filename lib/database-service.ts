@@ -1,126 +1,33 @@
 // Database service for saving analytics data to the backend API
 
-import type { TaskSession, ClickEvent, ShowMoreInteraction, ShowAllInteraction } from "@/lib/analytics"
+// 统一使用types/api.ts中的类型定义
+import type { TaskSession } from "@/types/api"
 
-// TODO: Change back to API_BASE_URL when deploy
-const API_BASE_URL = "https://cmu-web-service-demo-7d7309b0820c.herokuapp.com/api/task-records"
-// const API_BASE_URL= "http://localhost:8080/api/task-records"
+// Updated to use participant-specific API routes
+const API_BASE_URL = "/api/participant/task-records"
 
-// Interface matching the backend TaskRecord model
-export interface TaskRecord {
-  id?: number
-  sid: string
-  participantId: string
-  treatmentGroup: string
-  taskTopic: string
-  taskId: string
-  taskType: "PRODUCT" | "INFO" // Enum values in uppercase
-  taskStartTime: string
-  taskEndTime?: string
-  clickSequence: ClickEvent[]
-  showMoreInteractions: ShowMoreInteraction[]
-  showAllInteractions: ShowAllInteraction[]
-  pageClickStatics_1: number
-  pageClickStatics_2: number
-  pageClickStatics_3: number
-  pageClickStatics_4: number
-}
-
-// Convert our TaskSession to TaskRecord format
-const convertSessionToRecord = (session: TaskSession): TaskRecord => {
-  return {
-    sid: session.sid,
-    participantId: session.participant_id,
-    treatmentGroup: session.treatment_group,
-    taskTopic: session.task_topic,
-    taskId: session.sid + "_" + session.participant_id + "_" + session.task_topic + "_" + session.treatment_group,
-    taskType: session.task_type.toUpperCase() as "PRODUCT" | "INFO",
-    taskStartTime: session.task_start_time,
-    taskEndTime: session.task_end_time || undefined,
-    clickSequence: session.click_sequence,
-    showMoreInteractions: session.show_more_interactions,
-    showAllInteractions: session.show_all_interactions,
-    pageClickStatics_1: session.page_click_statics_1,
-    pageClickStatics_2: session.page_click_statics_2,
-    pageClickStatics_3: session.page_click_statics_3,
-    pageClickStatics_4: session.page_click_statics_4,
-  }
-}
-
-// Check if a record exists with the same taskId
-const findExistingRecord = async (record: TaskRecord): Promise<TaskRecord | null> => {
-  try {
-    console.log(`Checking for existing record with taskId: ${record.taskId}`)
-    const response = await fetch(`${API_BASE_URL}/task/${record.taskId}`)
-
-    if (response.ok) {
-      const existingRecord = await response.json()
-      console.log(`Found existing record:`, existingRecord)
-      return existingRecord
-    } else if (response.status === 404) {
-      console.log(`No existing record found for taskId: ${record.taskId}`)
-      return null
-    } else {
-      console.error(`Error checking for existing record: ${response.status} ${response.statusText}`)
-      return null
-    }
-  } catch (error) {
-    console.error("Error checking for existing record:", error)
-    return null
-  }
-}
-
-// Save or update task record in database
+// Save task record in database - 超级简化版，直接传递
 export const saveTaskRecord = async (session: TaskSession): Promise<boolean> => {
   try {
-    const record = convertSessionToRecord(session)
-    console.log(`Attempting to save/update record for taskId: ${record.taskId}`)
+    console.log(`Attempting to save/update record for task_id: ${session.task_id}`)
 
-    const existingRecord = await findExistingRecord(record)
+    // 直接POST到API，让API处理upsert逻辑
+    const response = await fetch(API_BASE_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(session),
+    })
 
-    if (existingRecord && existingRecord.id) {
-      // Update existing record
-      console.log(`Updating existing record with ID: ${existingRecord.id}`)
-      const response = await fetch(`${API_BASE_URL}/${existingRecord.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          ...record,
-          id: existingRecord.id, // Include the ID for update
-        }),
-      })
-
-      if (response.ok) {
-        const updatedRecord = await response.json()
-        console.log(`Successfully updated task record ${existingRecord.id}:`, updatedRecord)
-        return true
-      } else {
-        const errorText = await response.text()
-        console.error(`Failed to update task record: ${response.status} ${response.statusText}`, errorText)
-        return false
-      }
+    if (response.ok) {
+      const result = await response.json()
+      console.log(`Successfully saved task record:`, result)
+      return true
     } else {
-      // Create new record
-      console.log(`Creating new record for taskId: ${record.taskId}`)
-      const response = await fetch(API_BASE_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(record),
-      })
-
-      if (response.ok) {
-        const createdRecord = await response.json()
-        console.log(`Successfully created new task record ${createdRecord.id}:`, createdRecord)
-        return true
-      } else {
-        const errorText = await response.text()
-        console.error(`Failed to create task record: ${response.status} ${response.statusText}`, errorText)
-        return false
-      }
+      const errorText = await response.text()
+      console.error(`Failed to save task record: ${response.status} ${response.statusText}`, errorText)
+      return false
     }
   } catch (error) {
     console.error("Error saving task record:", error)
@@ -135,7 +42,7 @@ export const saveTaskRecordWithRetry = async (session: TaskSession, maxRetries =
       return true
     }
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    console.log(`Save attempt ${attempt}/${maxRetries} for session:`, session.sid)
+    console.log(`Save attempt ${attempt}/${maxRetries} for session:`, session.participant_id)
     
 
     // if (attempt < maxRetries) {
@@ -150,54 +57,5 @@ export const saveTaskRecordWithRetry = async (session: TaskSession, maxRetries =
   return false
 }
 
-// Get all task records for a participant
-export const getTaskRecordsByParticipant = async (participantId: string): Promise<TaskRecord[]> => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/participant/${participantId}`)
-    if (response.ok) {
-      return await response.json()
-    }
-    return []
-  } catch (error) {
-    console.error("Error fetching task records:", error)
-    return []
-  }
-}
-
-// Get task record by taskId
-export const getTaskRecordByTaskId = async (taskId: string): Promise<TaskRecord | null> => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/task/${taskId}`)
-    if (response.ok) {
-      return await response.json()
-    }
-    return null
-  } catch (error) {
-    console.error("Error fetching task record:", error)
-    return null
-  }
-}
-
-// Delete all task records (for testing/cleanup)
-export const deleteAllTaskRecords = async (): Promise<boolean> => {
-  try {
-    const response = await fetch(API_BASE_URL, {
-      method: "DELETE",
-    })
-    return response.ok
-  } catch (error) {
-    console.error("Error deleting all task records:", error)
-    return false
-  }
-}
-
-// Test database connection
-export const testDatabaseConnection = async (): Promise<boolean> => {
-  try {
-    const response = await fetch(API_BASE_URL)
-    return response.ok
-  } catch (error) {
-    console.error("Database connection test failed:", error)
-    return false
-  }
-}
+// 删除了所有不需要的获取、删除和测试函数
+// 被试只需要保存数据，不需要读取或删除

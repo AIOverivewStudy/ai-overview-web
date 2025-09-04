@@ -1,6 +1,5 @@
 "use client"
 import Image from "next/image"
-import Link from "next/link"
 import { SearchBar } from "@/components/search-bar"
 import { usePathname } from "next/navigation";
 

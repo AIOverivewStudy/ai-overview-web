@@ -1,10 +1,18 @@
 'use client'
 
 import Image from "next/image"
-import Link from "next/link"
 import { MoreVertical } from "lucide-react"
 import {usePathname} from "next/navigation"
 import { TrackedLink } from "@/components/tracked-link"
+import { trackShowAllClick } from "@/lib/analytics"
+
+interface VideoData {
+  title: string
+  url: string
+  channel: string
+  date: string
+  duration?: string
+}
 
 export function VideosSection() {
    const pathname = usePathname();
@@ -20,7 +28,7 @@ export function VideosSection() {
       </div>
 
       <div className="space-y-6">
-        {videoData.map((video, index) => (
+        {videoData.map((video: VideoData, index: number) => (
           <div key={index} className="flex items-start gap-4 border-b border-gray-200 pb-6">
             <div className="relative flex-shrink-0">
               <Image
@@ -61,7 +69,10 @@ export function VideosSection() {
       </div>
 
       <div className="mt-4 flex justify-center">
-        <button className="flex items-center justify-center gap-2 bg-gray-100 text-gray-800 py-3 px-6 rounded-full hover:bg-gray-200 w-full max-w-md">
+        <button 
+          onClick={() => trackShowAllClick("VideosSection")}
+          className="flex items-center justify-center gap-2 bg-gray-100 text-gray-800 py-3 px-6 rounded-full hover:bg-gray-200 w-full max-w-md"
+        >
           <span>View all</span>
           <svg
             xmlns="http://www.w3.org/2000/svg"

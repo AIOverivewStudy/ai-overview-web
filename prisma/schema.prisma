@@ -1,0 +1,76 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model TaskRecord {
+  id                   Int                    @id @default(autoincrement())
+  participant_id       String
+  treatment_group      String
+  task_id              String                 @unique
+  task_topic           String
+  task_type            String
+  task_start_time      String
+  task_end_time        String?
+  page_click_statics_1 Int?                   @default(0)
+  page_click_statics_2 Int?                   @default(0)
+  page_click_statics_3 Int?                   @default(0)
+  page_click_statics_4 Int?                   @default(0)
+  
+  click_sequence         ClickEvent[]
+  show_more_interactions ShowMoreInteraction[]
+  show_all_interactions  ShowAllInteraction[]
+
+  @@map("task_records")
+}
+
+model ClickEvent {
+  id              Int        @id @default(autoincrement())
+  task_record_id  Int
+  task_id         String
+  click_order     Int
+  page_title      String
+  page_id         String
+  position_in_serp String
+  click_time      String
+  dwell_time_sec  Float?
+  from_overview   Boolean
+  from_ai_mode    Boolean
+  
+  taskRecord      TaskRecord @relation(fields: [task_record_id], references: [id], onDelete: Cascade)
+
+  @@map("click_events")
+}
+
+model ShowMoreInteraction {
+  id              Int        @id @default(autoincrement())
+  task_record_id  Int
+  task_id         String
+  click_order     Int
+  component_name  String
+  click_time      String
+  
+  taskRecord      TaskRecord @relation(fields: [task_record_id], references: [id], onDelete: Cascade)
+
+  @@map("show_more_interactions")
+}
+
+model ShowAllInteraction {
+  id              Int        @id @default(autoincrement())
+  task_record_id  Int
+  task_id         String
+  click_order     Int
+  component_name  String
+  click_time      String
+  
+  taskRecord      TaskRecord @relation(fields: [task_record_id], references: [id], onDelete: Cascade)
+
+  @@map("show_all_interactions")
+}
