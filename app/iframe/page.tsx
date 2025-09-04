@@ -70,7 +70,7 @@ export default function ExternalResourcePage() {
             💡 Research Tip
           </p>
           <p className="text-sm text-blue-700">
-            Try exploring the search results, AI summaries, and curated content within this platform to find the information you need.
+            Try exploring the search results within this platform to find the information you need.
           </p>
         </div>
 

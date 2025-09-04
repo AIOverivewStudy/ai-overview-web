@@ -1,7 +1,7 @@
 'use client'
 
 import { TrackedLink } from "@/components/tracked-link"
-import { usePathname, useSearchParams } from "next/navigation"
+import { usePathname } from "next/navigation"
 
 interface SearchTabsProps {
   currentPage?: string
@@ -9,7 +9,6 @@ interface SearchTabsProps {
 
 export function SearchTabs({ currentPage = "all" }: SearchTabsProps) {
   const pathname = usePathname()
-  const searchParams = useSearchParams()
 
   const match = pathname.match(/^(.*?)(\/\d+)?\/?$/)
   const basePath = match ? match[1].split('/')[1] ? `/${match[1].split('/')[1]}` : "" : "";
@@ -18,9 +17,14 @@ export function SearchTabs({ currentPage = "all" }: SearchTabsProps) {
   let allHref = "/"
 
   if (pathname.endsWith("/ai-mode")) {
-    // AI Mode 
-    const from = searchParams.get("from")
-    allHref = from || "/" 
+    // AI Mode - 从 /Topic/ai-mode 跳转到 /iframe/Topic/middle-ai-overview/have-ai-mode/1
+    const pathParts = pathname.split("/").filter(Boolean)
+    if (pathParts.length >= 1) {
+      const topic = pathParts[0] // 获取topic (如 Phone)
+      allHref = `/iframe/${topic}/middle-ai-overview/have-ai-mode/1`
+    } else {
+      allHref = "/" 
+    }
   } else {
     // not AI mode, turn to 1
     const parts = pathname.split("/").filter(Boolean)
@@ -33,10 +37,10 @@ export function SearchTabs({ currentPage = "all" }: SearchTabsProps) {
   const tabs = [
     { name: "AI Mode", key: "ai-mode", href: `${basePath}/ai-mode?from=${pathname}` },
     { name: "All", key: "all", href: allHref },
-    { name: "Images", key: "images", href: "#" },
-    { name: "Short videos", key: "videos", href: "#" },
-    { name: "Forums", key: "forums", href: "#" },
-    { name: "More", key: "more", href: "#" },
+    { name: "Images", key: "images", href: `/iframe?url=${encodeURIComponent('https://www.google.com/search?tbm=isch&q=example')}` },
+    { name: "Short videos", key: "videos", href: `/iframe?url=${encodeURIComponent('https://www.google.com/search?tbm=vid&q=example')}` },
+    { name: "Forums", key: "forums", href: `/iframe?url=${encodeURIComponent('https://www.reddit.com/search?q=example')}` },
+    { name: "More", key: "more", href: `/iframe?url=${encodeURIComponent('https://www.google.com/search?q=example')}` },
   ]
 
   return (

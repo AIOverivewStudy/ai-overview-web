@@ -66,20 +66,34 @@ export default function IframePage() {
   useEffect(() => {
     // 检查是否是被iframe嵌套的内容
     const urlParams = new URLSearchParams(window.location.search)
-    setIsIframeContent(urlParams.get('iframe') === 'true')
+    const isIframeParam = urlParams.get('iframe') === 'true'
+    setIsIframeContent(isIframeParam)
     
     // 检查是否是外部链接（通过查询参数传递）
     const externalUrl = urlParams.get('url')
     if (externalUrl) {
-      setIframeUrl(decodeURIComponent(externalUrl))
+      const decodedUrl = decodeURIComponent(externalUrl)
+      
+      // 如果是外部链接，重定向到限制页面
+      if (isExternalLink(decodedUrl)) {
+        router.replace(`/iframe?url=${externalUrl}`)
+        return
+      }
+      
+      setIframeUrl(decodedUrl)
       setBackUrl('/') // 外部链接默认返回首页
     } else if (params.slug && Array.isArray(params.slug)) {
       // 内部链接处理
       const fullPath = '/' + params.slug.join('/')
       setIframeUrl(fullPath)
       setBackUrl(getBackUrlFromPath(fullPath))
+      
+      // 如果是iframe内容，重定向到原始URL
+      if (isIframeParam) {
+        router.replace(fullPath)
+      }
     }
-  }, [params.slug])
+  }, [params.slug, router])
 
   const handleBack = () => {
     // 优先使用浏览器历史记录
@@ -99,9 +113,8 @@ export default function IframePage() {
   const isStatic = isStaticHtmlFile(iframeUrl)
   const isExternal = isExternalLink(iframeUrl)
 
-  // 如果是iframe内容，直接重定向到原始URL
+  // 如果是iframe内容，显示加载状态（重定向在useEffect中处理）
   if (isIframeContent) {
-    router.replace(iframeUrl)
     return <div className="min-h-screen bg-white flex items-center justify-center">Redirecting...</div>
   }
 

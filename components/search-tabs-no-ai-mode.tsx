@@ -7,10 +7,10 @@ interface SearchTabsProps {
 export function SearchTabs({ currentPage = "all" }: SearchTabsProps) {
   const tabs = [
     { name: "All", key: "all", href: "/" },
-    { name: "Images", key: "images", href: "#" },
-    { name: "Short videos", key: "videos", href: "#" },
-    { name: "Forums", key: "forums", href: "#" },
-    { name: "More", key: "more", href: "#" },
+    { name: "Images", key: "images", href: `/iframe?url=${encodeURIComponent('https://www.google.com/search?tbm=isch&q=example')}` },
+    { name: "Short videos", key: "videos", href: `/iframe?url=${encodeURIComponent('https://www.google.com/search?tbm=vid&q=example')}` },
+    { name: "Forums", key: "forums", href: `/iframe?url=${encodeURIComponent('https://www.reddit.com/search?q=example')}` },
+    { name: "More", key: "more", href: `/iframe?url=${encodeURIComponent('https://www.google.com/search?q=example')}` },
   ]
 
   return (
