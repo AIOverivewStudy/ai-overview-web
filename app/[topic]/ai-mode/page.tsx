@@ -293,14 +293,25 @@ export default function AiModePage() {
   }
 
   return (
-    <div className="min-h-screen bg-white text-gray-800" onContextMenu={(e) => e.preventDefault()}>
+    <div
+      className="min-h-screen bg-white text-gray-800"
+      onContextMenu={(e) => e.preventDefault()}
+    >
       {/* Header */}
       <header className="border-b border-gray-200">
         <div className="flex items-center px-6 py-4">
           <div className="mr-8">
-            <Image src="/google-logo.png" alt="Google" width={92} height={30} className="h-8 w-auto" />
+            <Image
+              src="/google-logo.png"
+              alt="Google"
+              width={92}
+              height={30}
+              className="h-8 w-auto"
+            />
           </div>
-          <div className="flex-1 max-w-2xl">{/* Search tabs only, no search bar on AI Mode page */}</div>
+          <div className="flex-1 max-w-2xl">
+            {/* Search tabs only, no search bar on AI Mode page */}
+          </div>
           <div className="ml-auto flex items-center gap-4">
             <button className="p-2 rounded-full hover:bg-gray-100">
               <svg
@@ -320,7 +331,25 @@ export default function AiModePage() {
                 <circle cx="12" cy="19" r="1"></circle>
               </svg>
             </button>
-            <button className="p-2 rounded-full hover:bg-gray-100">
+            <button
+              className="p-2 rounded-full hover:bg-gray-100"
+              title="Google apps"
+            >
+              <svg
+                focusable="false"
+                viewBox="0 0 24 24"
+                width="24"
+                height="24"
+                className="text-gray-600"
+                fill="currentColor"
+              >
+                <path d="M6,8c1.1,0 2,-0.9 2,-2s-0.9,-2 -2,-2 -2,0.9 -2,2 0.9,2 2,2zM12,20c1.1,0 2,-0.9 2,-2s-0.9,-2 -2,-2 -2,0.9 -2,2 0.9,2 2,2zM6,20c1.1,0 2,-0.9 2,-2s-0.9,-2 -2,-2 -2,0.9 -2,2 0.9,2 2,2zM6,14c1.1,0 2,-0.9 2,-2s-0.9,-2 -2,-2 -2,0.9 -2,2 0.9,2 2,2zM12,14c1.1,0 2,-0.9 2,-2s-0.9,-2 -2,-2 -2,0.9 -2,2 0.9,2 2,2zM16,6c0,1.1 0.9,2 2,2s2,-0.9 2,-2 -0.9,-2 -2,-2 -2,0.9 -2,2zM12,8c1.1,0 2,-0.9 2,-2s-0.9,-2 -2,-2 -2,0.9 -2,2 0.9,2 2,2zM18,14c1.1,0 2,-0.9 2,-2s-0.9,-2 -2,-2 -2,0.9 -2,2 0.9,2 2,2zM18,20c1.1,0 2,-0.9 2,-2s-0.9,-2 -2,-2 -2,0.9 -2,2 0.9,2 2,2z"></path>
+              </svg>
+            </button>
+            <button
+              className="p-2 rounded-full hover:bg-gray-100"
+              title="Account"
+            >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="24"
@@ -333,15 +362,10 @@ export default function AiModePage() {
                 strokeLinejoin="round"
                 className="text-gray-600"
               >
-                <rect width="3" height="3" x="9" y="9"></rect>
-                <rect width="3" height="3" x="9" y="15"></rect>
-                <rect width="3" height="3" x="15" y="9"></rect>
-                <rect width="3" height="3" x="15" y="15"></rect>
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
               </svg>
             </button>
-            <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-white font-medium">
-              W
-            </div>
           </div>
         </div>
         <div className="px-6">
@@ -372,7 +396,9 @@ export default function AiModePage() {
                 {pageConfig.title}
               </h1>
               <div className="prose prose-lg max-w-none">
-                {data.text_blocks.map((block, index) => renderTextBlock(block, index))}
+                {data.text_blocks.map((block, index) =>
+                  renderTextBlock(block, index)
+                )}
               </div>
             </div>
             <div className="pt-4 bg-white sticky bottom-0">
@@ -400,11 +426,15 @@ export default function AiModePage() {
                     url={ref.host ? `https://${ref.host}` : ref.link}
                     size={24}
                     className="border-2 border-white"
-                    fallbackText={getWebsiteName(ref.host ? `https://${ref.host}` : ref.link).charAt(0)}
+                    fallbackText={getWebsiteName(
+                      ref.host ? `https://${ref.host}` : ref.link
+                    ).charAt(0)}
                   />
                 ))}
               </div>
-              <span className="text-sm text-gray-600">{data.references.length} sites</span>
+              <span className="text-sm text-gray-600">
+                {data.references.length} sites
+              </span>
               <button className="ml-auto">
                 <MoreVertical className="h-5 w-5 text-gray-500" />
               </button>
@@ -430,43 +460,60 @@ export default function AiModePage() {
                   {/* Scrollable content container */}
                   <div className="h-full overflow-y-auto pr-2">
                     <div className="space-y-4">
-                      {(showAllReferences || filteredReferenceIndexes ? displayedReferences : displayedReferences).map(
-                        (ref, index) => (
-                          <div
-                            key={index}
-                            className="bg-white border border-gray-200 rounded-md overflow-hidden shadow-sm"
-                          >
-                            <div className="flex">
-                              <div className="flex-1 p-2">
-                                <h3 className="text-blue-700 hover:underline text-base font-medium">
-                                  <TrackedLink componentName="AIMode" linkIndex={index} href={ref.link}>{ref.title}</TrackedLink>
-                                </h3>
-                                <p className="text-xs text-gray-700 mt-1 line-clamp-2">{ref.snippet}</p>
-                                <div className="flex items-center mt-1">
-                                  <WebsiteFavicon
-                                    url={ref.host ? `https://${ref.host}` : ref.link}
-                                    size={16}
-                                    fallbackText={getWebsiteName(ref.host ? `https://${ref.host}` : ref.link).charAt(0)}
-                                  />
-                                  <span className="ml-2 text-xs text-gray-600">{getWebsiteName(ref.host ? `https://${ref.host}` : ref.link)}</span>
-                                  <button className="ml-auto">
-                                    <MoreVertical className="h-4 w-4 text-gray-500" />
-                                  </button>
-                                </div>
-                              </div>
-                              <div className="w-24 h-16">
-                                <Image
-                                  src={getImageForReference(ref.index)}
-                                  alt="Article thumbnail"
-                                  width={96}
-                                  height={64}
-                                  className="w-full h-full object-cover"
+                      {(showAllReferences || filteredReferenceIndexes
+                        ? displayedReferences
+                        : displayedReferences
+                      ).map((ref, index) => (
+                        <div
+                          key={index}
+                          className="bg-white border border-gray-200 rounded-md overflow-hidden shadow-sm"
+                        >
+                          <div className="flex">
+                            <div className="flex-1 p-2">
+                              <h3 className="text-blue-700 hover:underline text-base font-medium">
+                                <TrackedLink
+                                  componentName="AIMode"
+                                  linkIndex={index}
+                                  href={ref.link}
+                                >
+                                  {ref.title}
+                                </TrackedLink>
+                              </h3>
+                              <p className="text-xs text-gray-700 mt-1 line-clamp-2">
+                                {ref.snippet}
+                              </p>
+                              <div className="flex items-center mt-1">
+                                <WebsiteFavicon
+                                  url={
+                                    ref.host ? `https://${ref.host}` : ref.link
+                                  }
+                                  size={16}
+                                  fallbackText={getWebsiteName(
+                                    ref.host ? `https://${ref.host}` : ref.link
+                                  ).charAt(0)}
                                 />
+                                <span className="ml-2 text-xs text-gray-600">
+                                  {getWebsiteName(
+                                    ref.host ? `https://${ref.host}` : ref.link
+                                  )}
+                                </span>
+                                <button className="ml-auto">
+                                  <MoreVertical className="h-4 w-4 text-gray-500" />
+                                </button>
                               </div>
                             </div>
+                            <div className="w-24 h-16">
+                              <Image
+                                src={getImageForReference(ref.index)}
+                                alt="Article thumbnail"
+                                width={96}
+                                height={64}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
                           </div>
-                        ),
-                      )}
+                        </div>
+                      ))}
 
                       {/* Spacer to ensure button doesn't overlap content when scrolling */}
                       <div className="h-16"></div>
@@ -506,5 +553,5 @@ export default function AiModePage() {
         </div>
       </div>
     </div>
-  )
+  );
 }
