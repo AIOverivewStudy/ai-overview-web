@@ -188,8 +188,8 @@ export default function AiModePage() {
       case "paragraph":
         if (block.title) {
           return (
-            <div className="mb-6">
-              <h2 key={index} className="text-xl font-medium text-gray-900 mb-4">
+            <div key={index} className="mb-6">
+              <h2 className="text-xl font-medium text-gray-900 mb-4">
                 {block.title}
               </h2>
               <p className="text-gray-700 whitespace-pre-wrap">

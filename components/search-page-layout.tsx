@@ -15,7 +15,8 @@ export function SearchPageLayout({
   searchTabsVariant = 'default' 
 }: SearchPageLayoutProps) {
   useEffect(() => {
-    // Trigger session creation + backend logging on page load
+    // Ensure session initialization for pages using SearchPageLayout
+    // This provides redundancy with AnalyticsTracker for reliability
     initializeSession();
   }, []);
 

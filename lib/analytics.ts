@@ -38,19 +38,24 @@ const extractUrlParams = () => {
     localStorage.setItem("RID", participant_id);
   }
 
-  if (segments.length >= 3) {
+  if (segments.length >= 2) {
     const topic = segments[0];
     
     if (segments.length >= 4) {
-      // 新的4段URL格式: /topic/mode/variant/page
+      // 4段URL格式: /topic/mode/variant/page
       const mode = segments[1];
       const variant = segments[2];
       // const page = segments[3]; // 页面编号，当前analytics不需要
       const treatmentGroup = `${mode}_${variant}`;
       
       return { topic, treatmentGroup, participant_id };
-    } else {
-      // 旧的3段URL格式: /topic/largeGroup/smallGroup
+    } else if (segments.length === 2 && segments[1] === "ai-mode") {
+      // 2段URL格式: /topic/ai-mode
+      const treatmentGroup = "ai-mode";
+      
+      return { topic, treatmentGroup, participant_id };
+    } else if (segments.length === 3) {
+      // 3段URL格式: /topic/largeGroup/smallGroup (旧格式，兼容性)
       const largeGroup = segments[1];
       const smallGroup = segments[2];
       const treatmentGroup = `${largeGroup}_${smallGroup}`;
@@ -153,21 +158,27 @@ const getCurrentTaskSession = async (): Promise<TaskSession> => {
   // Try to get existing session
   const existingSession = localStorage.getItem("current_task_session");
   if (existingSession) {
-    const session: TaskSession = JSON.parse(existingSession);
-    console.log(session);
+    try {
+      const session: TaskSession = JSON.parse(existingSession);
+      console.log(session);
 
-    if (
-      session.treatment_group != treatmentGroup ||
-      session.task_topic != topic ||
-      session.task_type != taskType
-    ) {
-      console.log(
-        "Session parameters changed, ending current session and creating new one"
-      );
-      endTaskSession();
+      if (
+        session.treatment_group != treatmentGroup ||
+        session.task_topic != topic ||
+        session.task_type != taskType
+      ) {
+        console.log(
+          "Session parameters changed, ending current session and creating new one"
+        );
+        endTaskSession();
+        return await createNewSession();
+      }
+      return session;
+    } catch (error) {
+      console.error("Failed to parse existing session from localStorage, creating new session:", error);
+      localStorage.removeItem("current_task_session");
       return await createNewSession();
     }
-    return session;
   } else {
     console.log("No existing session found, creating new one");
     return await createNewSession();
@@ -371,7 +382,16 @@ export const trackReturnFromLink = async (): Promise<void> => {
   isTracking = true; // lock
 
   try {
-    const clickEvent: ClickEvent = JSON.parse(clickEventRaw);
+    let clickEvent: ClickEvent;
+    try {
+      clickEvent = JSON.parse(clickEventRaw);
+    } catch (parseError) {
+      console.error("Failed to parse click event from localStorage:", parseError);
+      localStorage.removeItem("current_click_event");
+      localStorage.removeItem("click_start_time");
+      return;
+    }
+
     const startTime = localStorage.getItem("click_start_time");
     
     console.log("📊 Click event data:", {
@@ -428,29 +448,34 @@ export const endTaskSession = (): void => {
   const sessionRaw = localStorage.getItem("current_task_session");
   if (!sessionRaw) return;
 
-  const session: TaskSession = JSON.parse(sessionRaw);
-  session.task_end_time = changeCurrentDateTime();
-  saveSessionToDatabase(session);
+  let taskId = "unknown";
+  try {
+    const session: TaskSession = JSON.parse(sessionRaw);
+    session.task_end_time = changeCurrentDateTime();
+    taskId = `${session.participant_id}_${session.task_topic}_${session.treatment_group}`;
+    saveSessionToDatabase(session);
+  } catch (error) {
+    console.error("Failed to parse session when ending task session:", error);
+  }
 
   localStorage.removeItem("current_task_session");
 
-  console.log(
-    `Task ${
-      session.participant_id +
-      "_" +
-      session.task_topic +
-      "_" +
-      session.treatment_group
-    } ended, saving final state to database...`
-  );
+  console.log(`Task ${taskId} ended, saving final state to database...`);
 };
 
 
 
 // Initialize session tracking
+let isInitialized = false;
 export const initializeSession = (): void => {
+  if (isInitialized) {
+    console.log("Session already initialized, skipping...");
+    return;
+  }
+  
   // This will create a new session if none exists
   console.log("Initializing session...");
+  isInitialized = true;
 
   getCurrentTaskSession();
   console.log("Init end!!!-----Current session:");

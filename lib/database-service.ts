@@ -37,23 +37,30 @@ export const saveTaskRecord = async (session: TaskSession): Promise<boolean> => 
 
 // Save task record with retry logic
 export const saveTaskRecordWithRetry = async (session: TaskSession, maxRetries = 3): Promise<boolean> => {
-  const success = await saveTaskRecord(session)
-    if (success) {
-      return true
-    }
+  // 首次尝试
+  let success = await saveTaskRecord(session)
+  if (success) {
+    return true
+  }
+
+  // 重试逻辑
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     console.log(`Save attempt ${attempt}/${maxRetries} for session:`, session.participant_id)
     
-
-    // if (attempt < maxRetries) {
-    //   // Wait before retrying (exponential backoff)
-    //   const delay = Math.pow(2, attempt) * 1000
-    //   console.log(`Retrying save in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`)
-    //   await new Promise((resolve) => setTimeout(resolve, delay))
-    // }
+    // 指数退避延迟：1秒、2秒、4秒
+    const delay = Math.pow(2, attempt) * 1000
+    console.log(`Retrying save in ${delay}ms (attempt ${attempt}/${maxRetries})`)
+    await new Promise((resolve) => setTimeout(resolve, delay))
+    
+    // 重试保存
+    success = await saveTaskRecord(session)
+    if (success) {
+      console.log(`Save succeeded on attempt ${attempt}/${maxRetries}`)
+      return true
+    }
   }
 
-  console.error(`Failed to save task record after ${maxRetries} attempts`)
+  console.error(`Failed to save task record after ${maxRetries} attempts for session: ${session.participant_id}`)
   return false
 }
 
