@@ -3,6 +3,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { TaskSession } from '@/types/api'
 
+// 转换 BigInt 为普通数字以便 JSON 序列化
+const serializeBigInt = (obj: any): any => {
+  return JSON.parse(JSON.stringify(obj, (key, value) =>
+    typeof value === 'bigint' ? Number(value) : value
+  ))
+}
+
 // POST /api/participant/task-records - 直接将整个对象扔给Prisma
 export async function POST(request: NextRequest) {
   try {
@@ -76,7 +83,7 @@ export async function POST(request: NextRequest) {
           show_all_interactions: true,
         },
       })
-      return NextResponse.json(result, { status: 200 })
+      return NextResponse.json(serializeBigInt(result), { status: 200 })
     } else {
       // 记录不存在，创建新记录
       const result = await prisma.taskRecord.create({
@@ -98,7 +105,7 @@ export async function POST(request: NextRequest) {
           show_all_interactions: true,
         },
       })
-      return NextResponse.json(result, { status: 201 })
+      return NextResponse.json(serializeBigInt(result), { status: 201 })
     }
   } catch (error) {
     console.error('Error saving task record:', error)
