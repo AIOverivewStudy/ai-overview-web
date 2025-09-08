@@ -46,12 +46,15 @@ export async function POST(request: NextRequest) {
 
       const newClickEvents = (click_sequence || [])
         .filter(c => !existingClickKeys.has(`${c.click_time}_${c.page_id}`))
+        .map(c => ({ ...c, task_id: data.task_id })) // 确保包含 task_id
       
       const newShowMoreInteractions = (show_more_interactions || [])
         .filter(s => !existingShowMoreKeys.has(`${s.click_time}_${s.component_name}`))
+        .map(s => ({ ...s, task_id: data.task_id })) // 确保包含 task_id
       
       const newShowAllInteractions = (show_all_interactions || [])
         .filter(s => !existingShowAllKeys.has(`${s.click_time}_${s.component_name}`))
+        .map(s => ({ ...s, task_id: data.task_id })) // 确保包含 task_id
 
       const result = await prisma.taskRecord.update({
         where: { task_id: data.task_id },
@@ -80,13 +83,13 @@ export async function POST(request: NextRequest) {
         data: {
           ...mainData,
           click_sequence: {
-            create: click_sequence || [],
+            create: (click_sequence || []).map(c => ({ ...c, task_id: data.task_id })),
           },
           show_more_interactions: {
-            create: show_more_interactions || [],
+            create: (show_more_interactions || []).map(s => ({ ...s, task_id: data.task_id })),
           },
           show_all_interactions: {
-            create: show_all_interactions || [],
+            create: (show_all_interactions || []).map(s => ({ ...s, task_id: data.task_id })),
           },
         },
         include: {

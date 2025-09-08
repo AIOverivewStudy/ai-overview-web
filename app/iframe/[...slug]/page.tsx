@@ -62,11 +62,13 @@ export default function IframePage() {
   const [iframeUrl, setIframeUrl] = useState<string>('')
   const [backUrl, setBackUrl] = useState<string>('/')
   const [isIframeContent, setIsIframeContent] = useState(false)
+  const [showBackButton, setShowBackButton] = useState(true)
 
   useEffect(() => {
     // 检查是否是被iframe嵌套的内容
     const urlParams = new URLSearchParams(window.location.search)
     const isIframeParam = urlParams.get('iframe') === 'true'
+    const maintainTask = urlParams.get('maintain_task') === 'true'
     setIsIframeContent(isIframeParam)
     
     // 检查是否是外部链接（通过查询参数传递）
@@ -82,11 +84,15 @@ export default function IframePage() {
       
       setIframeUrl(decodedUrl)
       setBackUrl('/') // 外部链接默认返回首页
+      
+      // 如果是维持任务的tab导航，不显示返回按钮
+      setShowBackButton(!maintainTask)
     } else if (params.slug && Array.isArray(params.slug)) {
       // 内部链接处理
       const fullPath = '/' + params.slug.join('/')
       setIframeUrl(fullPath)
       setBackUrl(getBackUrlFromPath(fullPath))
+      setShowBackButton(true) // 内部链接显示返回按钮
       
       // 如果是iframe内容，重定向到原始URL
       if (isIframeParam) {
@@ -120,18 +126,20 @@ export default function IframePage() {
 
   return (
     <div className="min-h-screen bg-white relative">
-      {/* 返回按钮 */}
-      <div className="fixed top-4 left-4 md:top-6 md:left-6 z-50">
-        <button
-          onClick={handleBack}
-          className="flex items-center gap-2 md:gap-3 bg-blue-600 text-white border-0 rounded-xl px-4 py-2.5 md:px-5 md:py-3 shadow-2xl hover:shadow-2xl hover:bg-blue-700 transition-all duration-300 hover:-translate-y-1 hover:scale-105 font-semibold text-sm md:text-base ring-2 ring-blue-200 backdrop-blur-sm"
-          title="Return to previous page"
-        >
-          <ArrowLeft className="w-4 h-4 md:w-5 md:h-5" />
-          <span className="hidden sm:inline">Back</span>
-          <span className="sm:hidden">←</span>
-        </button>
-      </div>
+      {/* 返回按钮 - 只在需要时显示 */}
+      {showBackButton && (
+        <div className="fixed top-4 left-4 md:top-6 md:left-6 z-50">
+          <button
+            onClick={handleBack}
+            className="flex items-center gap-2 md:gap-3 bg-blue-600 text-white border-0 rounded-xl px-4 py-2.5 md:px-5 md:py-3 shadow-2xl hover:shadow-2xl hover:bg-blue-700 transition-all duration-300 hover:-translate-y-1 hover:scale-105 font-semibold text-sm md:text-base ring-2 ring-blue-200 backdrop-blur-sm"
+            title="Return to previous page"
+          >
+            <ArrowLeft className="w-4 h-4 md:w-5 md:h-5" />
+            <span className="hidden sm:inline">Back</span>
+            <span className="sm:hidden">←</span>
+          </button>
+        </div>
+      )}
 
       {/* 内容容器 */}
       <div className="w-full h-screen">

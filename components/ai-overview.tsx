@@ -6,7 +6,7 @@ import { MoreVertical, ChevronDown, LinkIcon, X } from "lucide-react"
 import { WebsiteFavicon } from "@/components/website-favicon"
 import { getWebsiteName } from "@/lib/favicon-service"
 import { usePathname } from "next/navigation"
-import { trackShowMoreClick, trackShowAllClick } from "@/lib/analytics"
+import { trackShowMoreClick, trackShowAllClick, trackReferenceLinkClick } from "@/lib/analytics"
 import { TrackedLink } from "@/components/tracked-link"
 
 interface TextBlock {
@@ -85,6 +85,11 @@ export function AiOverview() {
   }, [pageKey])
 
   const handleReferenceClick = (referenceIndexes?: number[]) => {
+    if (referenceIndexes) {
+      // Track the reference link click
+      trackReferenceLinkClick(referenceIndexes, "AiOverview");
+    }
+    
     if (filteredReferenceIndexes && JSON.stringify(filteredReferenceIndexes) === JSON.stringify(referenceIndexes)) {
       setFilteredReferenceIndexes(null)
     } else if (referenceIndexes) {
@@ -409,7 +414,7 @@ export function AiOverview() {
                       }}
                       className="flex items-center justify-center w-full bg-blue-100 text-blue-700 py-3 rounded-full hover:bg-blue-200"
                     >
-                      <span>Show all</span>
+                      <span>Show all references</span>
                     </button>
                   </div>
                 </div>

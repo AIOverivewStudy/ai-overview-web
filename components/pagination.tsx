@@ -20,7 +20,7 @@ export function Pagination() {
   return (
     <div className="flex items-center justify-center py-8">
       <div className="flex items-center">
-        <TrackedLink componentName="clickPagination_" linkIndex={currentPage - 1} href={previousPath} className="flex items-center text-blue-600 mr-4 hover:underline">
+        <TrackedLink componentName="clickPagination_" linkIndex={-1} href={previousPath} className="flex items-center text-blue-600 mr-4 hover:underline">
           <ChevronLeft className="h-5 w-5 mr-1" />
           <span>Previous</span>
         </TrackedLink>
@@ -43,9 +43,8 @@ export function Pagination() {
 
             return (
               <TrackedLink
-
                 componentName="clickPagination_"
-                linkIndex={index}
+                linkIndex={typeof page === 'number' ? page : index}
                 key={page}
                 href={href}
                 className={`flex items-center justify-center w-8 h-8 rounded-full transition-colors ${isActive
@@ -59,7 +58,7 @@ export function Pagination() {
           })}
         </div>
 
-        <TrackedLink componentName="clickPagination_" linkIndex={currentPage+1}  href={nextPath} className="flex items-center text-blue-600 ml-4 hover:underline">
+        <TrackedLink componentName="clickPagination_" linkIndex={-2} href={nextPath} className="flex items-center text-blue-600 ml-4 hover:underline">
           <span>Next</span>
           <ChevronRight className="h-5 w-5 ml-1" />
         </TrackedLink>

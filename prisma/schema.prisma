@@ -17,8 +17,7 @@ model TaskRecord {
   task_id              String                 @unique
   task_topic           String
   task_type            String
-  task_start_time      String
-  task_end_time        String?
+  task_start_time      BigInt                 // UTC timestamp
   page_click_statics_1 Int?                   @default(0)
   page_click_statics_2 Int?                   @default(0)
   page_click_statics_3 Int?                   @default(0)
@@ -39,7 +38,7 @@ model ClickEvent {
   page_title      String
   page_id         String
   position_in_serp String
-  click_time      String
+  click_time      BigInt     // UTC timestamp
   dwell_time_sec  Float?
   from_overview   Boolean
   from_ai_mode    Boolean
@@ -55,7 +54,7 @@ model ShowMoreInteraction {
   task_id         String
   click_order     Int
   component_name  String
-  click_time      String
+  click_time      BigInt     // UTC timestamp
   
   taskRecord      TaskRecord @relation(fields: [task_record_id], references: [id], onDelete: Cascade)
 
@@ -68,7 +67,7 @@ model ShowAllInteraction {
   task_id         String
   click_order     Int
   component_name  String
-  click_time      String
+  click_time      BigInt     // UTC timestamp
   
   taskRecord      TaskRecord @relation(fields: [task_record_id], references: [id], onDelete: Cascade)
 

@@ -8,7 +8,7 @@ interface SearchBarProps {
 }
 
 export function SearchBar({ defaultValue = "" }: SearchBarProps) {
-  const [query, setQuery] = useState(defaultValue)
+  const [query] = useState(defaultValue)
 
   return (
     <div className="flex-1 max-w-3xl">
@@ -18,12 +18,12 @@ export function SearchBar({ defaultValue = "" }: SearchBarProps) {
           <input
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            readOnly
             className="flex-1 bg-transparent outline-none text-gray-800"
             placeholder="Search Google or type a URL"
           />
           {query && (
-            <button onClick={() => setQuery("")} className="p-1 mr-1">
+            <button className="p-1 mr-1">
               <X className="h-5 w-5 text-gray-500" />
             </button>
           )}

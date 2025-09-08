@@ -22,6 +22,7 @@ const extractUrlParams = () => {
       topic: "",
       treatmentGroup: "",
       participant_id: "00001",
+      originalTreatmentGroup: "",
     };
   }
 
@@ -38,33 +39,50 @@ const extractUrlParams = () => {
     localStorage.setItem("RID", participant_id);
   }
 
+  let topic = "";
+  let treatmentGroup = "";
+  let originalTreatmentGroup = "";
+
   if (segments.length >= 2) {
-    const topic = segments[0];
+    topic = segments[0];
     
     if (segments.length >= 4) {
       // 4段URL格式: /topic/mode/variant/page
       const mode = segments[1];
       const variant = segments[2];
-      // const page = segments[3]; // 页面编号，当前analytics不需要
-      const treatmentGroup = `${mode}_${variant}`;
+      treatmentGroup = `${mode}_${variant}`;
+      originalTreatmentGroup = treatmentGroup;
       
-      return { topic, treatmentGroup, participant_id };
     } else if (segments.length === 2 && segments[1] === "ai-mode") {
-      // 2段URL格式: /topic/ai-mode
-      const treatmentGroup = "ai-mode";
+      // 2段URL格式: /topic/ai-mode - 这可能是从AI overview导航过来的
+      treatmentGroup = "ai-mode";
       
-      return { topic, treatmentGroup, participant_id };
+      // 检查是否有from参数，如果有则保持原始的treatment group
+      if (from) {
+        const fromSegments = from.split("/").filter(Boolean);
+        if (fromSegments.length >= 4) {
+          const fromMode = fromSegments[1];
+          const fromVariant = fromSegments[2];
+          originalTreatmentGroup = `${fromMode}_${fromVariant}`;
+          // 对于ai-mode导航，使用原始treatment group以维持同一task
+          treatmentGroup = originalTreatmentGroup;
+        } else {
+          originalTreatmentGroup = treatmentGroup;
+        }
+      } else {
+        originalTreatmentGroup = treatmentGroup;
+      }
+      
     } else if (segments.length === 3) {
       // 3段URL格式: /topic/largeGroup/smallGroup (旧格式，兼容性)
       const largeGroup = segments[1];
       const smallGroup = segments[2];
-      const treatmentGroup = `${largeGroup}_${smallGroup}`;
-      
-      return { topic, treatmentGroup, participant_id };
+      treatmentGroup = `${largeGroup}_${smallGroup}`;
+      originalTreatmentGroup = treatmentGroup;
     }
   }
 
-  return { topic: "", treatmentGroup: "", participant_id };
+  return { topic, treatmentGroup, participant_id, originalTreatmentGroup };
 };
 
 // Determine task type based on topic
@@ -93,21 +111,9 @@ const saveSessionToDatabase = async (
   }
 };
 
-function pad(num: number) {
-  return num.toString().padStart(2, "0");
-}
-
-const changeCurrentDateTime = () => {
-  const date = new Date();
-  const year = date.getFullYear();
-  const month = date.getMonth() + 1;
-  const day = date.getDate();
-  const hour = date.getHours();
-  const minute = date.getMinutes();
-  const second = date.getSeconds();
-  return `${year}-${pad(month)}-${pad(day)} ${pad(hour)}:${pad(minute)}:${pad(
-    second
-  )}`;
+// Get current UTC timestamp in milliseconds
+const getCurrentUTCTimestamp = () => {
+  return Date.now();
 };
 
 // 提取公共逻辑：获取下一个点击顺序
@@ -119,18 +125,21 @@ const getNextClickOrder = (session: TaskSession): number => {
 };
 
 const createNewSession = async (): Promise<TaskSession> => {
-  const { topic, treatmentGroup, participant_id } = extractUrlParams();
+  const { topic, treatmentGroup, participant_id, originalTreatmentGroup } = extractUrlParams();
   const taskType = getTaskType(topic);
+  
+  // Use original treatment group if available for task continuity
+  const sessionTreatmentGroup = originalTreatmentGroup || treatmentGroup;
+  
   // Create new session
   const newSession: TaskSession = {
-    task_id: `${participant_id}_${topic}_${treatmentGroup}`,
+    task_id: `${participant_id}_${topic}_${sessionTreatmentGroup}`,
     id: 0,
     participant_id: participant_id,
-    treatment_group: treatmentGroup,
+    treatment_group: sessionTreatmentGroup,
     task_topic: topic,
     task_type: taskType,
-    task_start_time: changeCurrentDateTime(),
-    task_end_time: null,
+    task_start_time: getCurrentUTCTimestamp(),
     click_sequence: [],
     show_more_interactions: [],
     show_all_interactions: [],
@@ -142,6 +151,11 @@ const createNewSession = async (): Promise<TaskSession> => {
 
   console.log("Creating new session:", newSession);
   localStorage.setItem("current_task_session", JSON.stringify(newSession));
+  
+  // Store the original treatment group for navigation
+  if (originalTreatmentGroup) {
+    localStorage.setItem("original_treatment_group", originalTreatmentGroup);
+  }
 
   // Save to database asynchronously
   const result = await saveSessionToDatabase(newSession);
@@ -152,7 +166,7 @@ const createNewSession = async (): Promise<TaskSession> => {
 
 // Get current task session
 const getCurrentTaskSession = async (): Promise<TaskSession> => {
-  const { topic, treatmentGroup } = extractUrlParams();
+  const { topic, treatmentGroup, originalTreatmentGroup } = extractUrlParams();
   const taskType = getTaskType(topic);
 
   // Try to get existing session
@@ -162,17 +176,27 @@ const getCurrentTaskSession = async (): Promise<TaskSession> => {
       const session: TaskSession = JSON.parse(existingSession);
       console.log(session);
 
-      if (
-        session.treatment_group != treatmentGroup ||
-        session.task_topic != topic ||
-        session.task_type != taskType
-      ) {
+      // For ai-mode navigation, we should maintain the same task if:
+      // 1. Same topic and task type
+      // 2. Either same treatment group OR the original treatment group matches
+      const isSameTask = session.task_topic === topic && 
+                        session.task_type === taskType && 
+                        (session.treatment_group === treatmentGroup || 
+                         session.treatment_group === originalTreatmentGroup);
+
+      if (!isSameTask) {
         console.log(
           "Session parameters changed, ending current session and creating new one"
         );
         endTaskSession();
         return await createNewSession();
       }
+      
+      // Store the original path for navigation purposes
+      if (originalTreatmentGroup && originalTreatmentGroup !== treatmentGroup) {
+        localStorage.setItem("original_treatment_group", originalTreatmentGroup);
+      }
+      
       return session;
     } catch (error) {
       console.error("Failed to parse existing session from localStorage, creating new session:", error);
@@ -196,7 +220,7 @@ export const trackLinkClick = async (
   const session = await getCurrentTaskSession();
   console.log("session", session);
 
-  const clickTime = changeCurrentDateTime();
+  const clickTime = getCurrentUTCTimestamp();
 
   // Determine page_id and other properties based on component
   let pageId = "";
@@ -248,6 +272,9 @@ export const trackLinkClick = async (
         break;
       case "clickPagination_":
         pageId = `pagination_${linkIndex + 1}`;
+        break;
+      case "ReferenceLink":
+        pageId = `reference_link_${linkIndex + 1}`;
         break;
       default:
         pageId = `other_${linkIndex + 1}`;
@@ -316,7 +343,7 @@ export const trackShowMoreClick = async (
   componentName: InteractionComponentName
 ): Promise<void> => {
   const currSession = await getCurrentTaskSession();
-  const clickTime = changeCurrentDateTime();
+  const clickTime = getCurrentUTCTimestamp();
   const nextOrder = getNextClickOrder(currSession);
   console.log("trackButtonClick", currSession);
 
@@ -340,7 +367,7 @@ export const trackShowAllClick = async (
   componentName: InteractionComponentName
 ): Promise<void> => {
   const currSession = await getCurrentTaskSession();
-  const clickTime = changeCurrentDateTime();
+  const clickTime = getCurrentUTCTimestamp();
   const nextOrder = getNextClickOrder(currSession);
   console.log("trackButtonClick", currSession);
 
@@ -358,6 +385,24 @@ export const trackShowAllClick = async (
 
   console.log("Tracked button click, updating database...");
   saveSessionToDatabase(currSession);
+};
+
+// Track reference link (LinkIcon) clicks
+export const trackReferenceLinkClick = async (
+  referenceIndexes: number[], 
+  componentName: string = "AiOverview"
+): Promise<void> => {
+  try {
+    // Track as a link click with reference info
+    await trackLinkClick(
+      "ReferenceLink" as ComponentName, 
+      referenceIndexes[0] || 0, 
+      `Reference links: ${referenceIndexes.join(", ")} from ${componentName}`
+    );
+    console.log(`Tracked reference link click: indexes ${referenceIndexes.join(", ")} from ${componentName}`);
+  } catch (error) {
+    console.error("Failed to track reference link click:", error);
+  }
 };
 
 let isTracking = false; // in-memory flag to prevent duplicate processing
@@ -451,7 +496,6 @@ export const endTaskSession = (): void => {
   let taskId = "unknown";
   try {
     const session: TaskSession = JSON.parse(sessionRaw);
-    session.task_end_time = changeCurrentDateTime();
     taskId = `${session.participant_id}_${session.task_topic}_${session.treatment_group}`;
     saveSessionToDatabase(session);
   } catch (error) {

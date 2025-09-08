@@ -26,6 +26,9 @@ export type ComponentName =
   // 分页相关
   | "clickPagination_"   // 分页点击
   
+  // 引用链接相关
+  | "ReferenceLink"      // 引用链接点击 (LinkIcon)
+  
   // 交互按钮组件名称（用于 trackShowMoreClick 和 trackShowAllClick）
 export type InteractionComponentName = 
   | "AiOverview"         // AI概览展开
@@ -39,7 +42,7 @@ export interface ClickEvent {
   page_title: string
   page_id: string
   position_in_serp: string
-  click_time: string
+  click_time: number  // UTC timestamp
   dwell_time_sec?: number | null
   from_overview: boolean
   from_ai_mode: boolean
@@ -49,14 +52,14 @@ export interface ShowMoreInteraction {
   task_id: string
   click_order: number
   component_name: string
-  click_time: string
+  click_time: number  // UTC timestamp
 }
 
 export interface ShowAllInteraction {
   task_id: string
   click_order: number
   component_name: string
-  click_time: string
+  click_time: number  // UTC timestamp
 }
 
 export interface TaskSession {
@@ -66,8 +69,7 @@ export interface TaskSession {
   task_id: string
   task_topic: string
   task_type: string
-  task_start_time: string
-  task_end_time?: string | null
+  task_start_time: number  // UTC timestamp
   page_click_statics_1: number
   page_click_statics_2: number
   page_click_statics_3: number
