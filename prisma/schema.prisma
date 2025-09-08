@@ -42,6 +42,7 @@ model ClickEvent {
   dwell_time_sec  Float?
   from_overview   Boolean
   from_ai_mode    Boolean
+  page_context    String?    // "search_results" | "ai_mode"
   
   taskRecord      TaskRecord @relation(fields: [task_record_id], references: [id], onDelete: Cascade)
 
@@ -55,6 +56,7 @@ model ShowMoreInteraction {
   click_order     Int
   component_name  String
   click_time      BigInt     // UTC timestamp
+  page_context    String?    // "search_results" | "ai_mode"
   
   taskRecord      TaskRecord @relation(fields: [task_record_id], references: [id], onDelete: Cascade)
 
@@ -68,6 +70,7 @@ model ShowAllInteraction {
   click_order     Int
   component_name  String
   click_time      BigInt     // UTC timestamp
+  page_context    String?    // "search_results" | "ai_mode"
   
   taskRecord      TaskRecord @relation(fields: [task_record_id], references: [id], onDelete: Cascade)
 

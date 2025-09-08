@@ -29,7 +29,12 @@ export type ComponentName =
   // 引用链接相关
   | "ReferenceLink"      // 引用链接点击 (LinkIcon)
   
-  // 交互按钮组件名称（用于 trackShowMoreClick 和 trackShowAllClick）
+  // 页面上下文类型 - 标记事件发生的页面环境
+export type PageContext = 
+  | "search_results"     // 普通搜索结果页面
+  | "ai_mode"            // AI模式页面
+
+// 交互按钮组件名称（用于 trackShowMoreClick 和 trackShowAllClick）
 export type InteractionComponentName = 
   | "AiOverview"         // AI概览展开
   | "AiMode"             // AI模式展开
@@ -46,6 +51,7 @@ export interface ClickEvent {
   dwell_time_sec?: number | null
   from_overview: boolean
   from_ai_mode: boolean
+  page_context?: PageContext  // 标记事件发生的页面上下文
 }
 
 export interface ShowMoreInteraction {
@@ -53,6 +59,7 @@ export interface ShowMoreInteraction {
   click_order: number
   component_name: string
   click_time: number  // UTC timestamp
+  page_context?: PageContext  // 标记事件发生的页面上下文
 }
 
 export interface ShowAllInteraction {
@@ -60,6 +67,7 @@ export interface ShowAllInteraction {
   click_order: number
   component_name: string
   click_time: number  // UTC timestamp
+  page_context?: PageContext  // 标记事件发生的页面上下文
 }
 
 export interface TaskSession {

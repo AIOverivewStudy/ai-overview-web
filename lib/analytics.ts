@@ -10,6 +10,7 @@ import type {
   ShowAllInteraction,
   ComponentName,
   InteractionComponentName,
+  PageContext,
 } from "@/types/api";
 
 
@@ -54,23 +55,29 @@ const extractUrlParams = () => {
       originalTreatmentGroup = treatmentGroup;
       
     } else if (segments.length === 2 && segments[1] === "ai-mode") {
-      // 2段URL格式: /topic/ai-mode - 这可能是从AI overview导航过来的
+      // 2段URL格式: /topic/ai-mode - 这可能是从搜索结果页面导航过来的
       treatmentGroup = "ai-mode";
       
-      // 检查是否有from参数，如果有则保持原始的treatment group
+      // 检查是否有from参数（来源页面），如果有则记录原始的treatment group
       if (from) {
         const fromSegments = from.split("/").filter(Boolean);
         if (fromSegments.length >= 4) {
           const fromMode = fromSegments[1];
           const fromVariant = fromSegments[2];
           originalTreatmentGroup = `${fromMode}_${fromVariant}`;
-          // 对于ai-mode导航，使用原始treatment group以维持同一task
-          treatmentGroup = originalTreatmentGroup;
+          // 保存原始页面路径，用于返回导航
+          localStorage.setItem("originalPathname", from);
         } else {
           originalTreatmentGroup = treatmentGroup;
         }
       } else {
-        originalTreatmentGroup = treatmentGroup;
+        // 尝试从localStorage获取之前保存的原始treatment group
+        const savedOriginalTreatmentGroup = localStorage.getItem("original_treatment_group");
+        if (savedOriginalTreatmentGroup) {
+          originalTreatmentGroup = savedOriginalTreatmentGroup;
+        } else {
+          originalTreatmentGroup = treatmentGroup;
+        }
       }
       
     } else if (segments.length === 3) {
@@ -89,6 +96,30 @@ const extractUrlParams = () => {
 const getTaskType = (topic: string): "product" | "info" => {
   const productTopics = ["Laptop", "Phone", "Car-vehicle", "Cruise"];
   return productTopics.includes(topic) ? "product" : "info";
+};
+
+// Get current page context based on URL
+const getCurrentPageContext = (): PageContext => {
+  if (typeof window === "undefined") {
+    return "search_results";
+  }
+  
+  const pathname = window.location.pathname;
+  
+  // Check if we're in AI Mode
+  if (pathname.endsWith("/ai-mode")) {
+    return "ai_mode";
+  }
+  
+  // Check if it's a normal search results page pattern
+  // Pattern: /{topic}/{mode}/{variant}/{page}
+  const segments = pathname.split("/").filter(Boolean);
+  if (segments.length >= 4) {
+    return "search_results";
+  }
+  
+  // Default to search_results for other cases
+  return "search_results";
 };
 
 // Save session to database with better error handling
@@ -176,13 +207,14 @@ const getCurrentTaskSession = async (): Promise<TaskSession> => {
       const session: TaskSession = JSON.parse(existingSession);
       console.log(session);
 
-      // For ai-mode navigation, we should maintain the same task if:
+      // For task continuity, we should maintain the same task if:
       // 1. Same topic and task type
-      // 2. Either same treatment group OR the original treatment group matches
+      // 2. Either same treatment group OR navigating to/from AI Mode within same variant
       const isSameTask = session.task_topic === topic && 
                         session.task_type === taskType && 
                         (session.treatment_group === treatmentGroup || 
-                         session.treatment_group === originalTreatmentGroup);
+                         session.treatment_group === originalTreatmentGroup ||
+                         (treatmentGroup === "ai-mode" && originalTreatmentGroup && session.treatment_group === originalTreatmentGroup));
 
       if (!isSameTask) {
         console.log(
@@ -291,6 +323,7 @@ export const trackLinkClick = async (
     dwell_time_sec: null, // Will be updated when user returns
     from_overview: fromOverview,
     from_ai_mode: fromAiMode,
+    page_context: getCurrentPageContext(), // 添加页面上下文
   };
 
   // // Add click to session
@@ -352,6 +385,7 @@ export const trackShowMoreClick = async (
     click_order: nextOrder,
     click_time: clickTime,
     component_name: componentName,
+    page_context: getCurrentPageContext(), // 添加页面上下文
   };
 
   currSession.show_more_interactions.push(showMoreInteraction);
@@ -376,6 +410,7 @@ export const trackShowAllClick = async (
     click_order: nextOrder,
     click_time: clickTime,
     component_name: componentName,
+    page_context: getCurrentPageContext(), // 添加页面上下文
   };
 
   currSession.show_all_interactions.push(showAllInteraction);
