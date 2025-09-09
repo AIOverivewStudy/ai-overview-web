@@ -47,7 +47,7 @@ export interface ClickEvent {
   page_title: string
   page_id: string
   position_in_serp: string
-  click_time: number  // UTC timestamp
+  click_time: Date  // UTC timestamp as Date object
   dwell_time_sec?: number | null
   from_overview: boolean
   from_ai_mode: boolean
@@ -58,7 +58,7 @@ export interface ShowMoreInteraction {
   task_id: string
   click_order: number
   component_name: string
-  click_time: number  // UTC timestamp
+  click_time: Date  // UTC timestamp as Date object
   page_context?: PageContext  // 标记事件发生的页面上下文
 }
 
@@ -66,7 +66,7 @@ export interface ShowAllInteraction {
   task_id: string
   click_order: number
   component_name: string
-  click_time: number  // UTC timestamp
+  click_time: Date  // UTC timestamp as Date object
   page_context?: PageContext  // 标记事件发生的页面上下文
 }
 
@@ -77,7 +77,7 @@ export interface TaskSession {
   task_id: string
   task_topic: string
   task_type: string
-  task_start_time: number  // UTC timestamp
+  task_start_time: Date  // UTC timestamp as Date object
   page_click_statics_1: number
   page_click_statics_2: number
   page_click_statics_3: number
@@ -92,9 +92,9 @@ export interface LinkClickEvent {
   componentName: string
   linkIndex: number
   url: string
-  timestamp: number
+  timestamp: Date
   from_overview?: boolean
   from_ai_mode?: boolean
   duration: number
-  returnTimestamp: number
+  returnTimestamp: Date
 }

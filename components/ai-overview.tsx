@@ -53,7 +53,7 @@ export function AiOverview() {
   const pageName = pathname.split("/").slice(1, 2).join("-");
   const aiOverviewData = require(`@/data/${pageName}/ai-overview.json`);
   
-  // 生成当前页面的唯一标识符（用于localStorage key）
+  // 生成当前页面的唯一标识符（用于sessionStorage key）
   const pageKey = `ai_overview_${pathname.replace(/\//g, '_')}`
   
   // 初始状态始终为false，避免水合错误
@@ -71,10 +71,10 @@ export function AiOverview() {
     }
   }, [showMore])
 
-  // 在客户端挂载后恢复localStorage中的状态
+  // 在客户端挂载后恢复sessionStorage中的状态 (标签页级别隔离)
   useEffect(() => {
-    const savedShowMore = localStorage.getItem(`${pageKey}_showMore`) === 'true'
-    const savedShowAllReferences = localStorage.getItem(`${pageKey}_showAllReferences`) === 'true'
+    const savedShowMore = sessionStorage.getItem(`${pageKey}_showMore`) === 'true'
+    const savedShowAllReferences = sessionStorage.getItem(`${pageKey}_showAllReferences`) === 'true'
     
     if (savedShowMore) {
       setShowMore(true)
@@ -125,8 +125,8 @@ export function AiOverview() {
 
   const handleShowMore = () => {
     setShowMore(true)
-    // 保存状态到localStorage
-    localStorage.setItem(`${pageKey}_showMore`, 'true')
+    // 保存状态到sessionStorage (标签页级别隔离)
+    sessionStorage.setItem(`${pageKey}_showMore`, 'true')
     // Track the "Show more" button click
     trackShowMoreClick("AiOverview")
   }
@@ -408,8 +408,8 @@ export function AiOverview() {
                     <button
                       onClick={() => {
                         setShowAllReferences(true); 
-                        // 保存状态到localStorage
-                        localStorage.setItem(`${pageKey}_showAllReferences`, 'true')
+                        // 保存状态到sessionStorage (标签页级别隔离)
+                        sessionStorage.setItem(`${pageKey}_showAllReferences`, 'true')
                         trackShowAllClick("AiOverview");
                       }}
                       className="flex items-center justify-center w-full bg-blue-100 text-blue-700 py-3 rounded-full hover:bg-blue-200"

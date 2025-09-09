@@ -32,19 +32,54 @@ const extractUrlParams = () => {
   const basePath = from || window.location.pathname;
   const segments = basePath.split("/").filter(Boolean);
 
-  // Extract RID from query parameters or localStorage
-  const participant_id =
-    searchParams.get("RID") || localStorage.getItem("RID") || "0";
+  // Extract RID from query parameters first, then sessionStorage
+  // Priority: URL param > sessionStorage (tab-specific)
+  let participant_id = searchParams.get("RID");
+  
+  if (!participant_id) {
+    // Try sessionStorage first (tab-specific)
+    participant_id = sessionStorage.getItem("RID");
+  }
+  
+  if (!participant_id) {
+    // No fallback to sessionStorage - maintain complete tab isolation
+    participant_id = null;
+  }
+  
+  if (!participant_id) {
+    participant_id = "0";
+  }
 
+  // Store RID in sessionStorage only for complete tab isolation
   if (participant_id !== "0") {
-    localStorage.setItem("RID", participant_id);
+    sessionStorage.setItem("RID", participant_id);  // Tab-specific storage
+    // Note: Using only sessionStorage to ensure complete tab isolation
   }
 
   let topic = "";
   let treatmentGroup = "";
   let originalTreatmentGroup = "";
 
-  if (segments.length >= 2) {
+  // Special handling for iframe paths
+  if (segments.length >= 2 && segments[0] === "iframe") {
+    // For iframe paths like /iframe/CmuWebPageshmtl/product/Phone/P1/...
+    // Extract the real topic from the embedded path
+    if (segments.length >= 4 && (segments[1] === "CmuWebPageshmtl" || segments[1] === "AI-overviewHtml" || segments[1] === "AI-modeHtml")) {
+      topic = segments[3]; // The real topic is at position 3
+      treatmentGroup = `${segments[1]}_${segments[2]}`; // e.g., "CmuWebPageshmtl_product"
+      originalTreatmentGroup = treatmentGroup;
+      
+      // Try to get the original treatment group from sessionStorage to maintain continuity
+      const storedOriginalTreatmentGroup = sessionStorage.getItem("original_treatment_group");
+      if (storedOriginalTreatmentGroup) {
+        originalTreatmentGroup = storedOriginalTreatmentGroup;
+      }
+    } else {
+      // Fallback for other iframe paths
+      topic = segments[1] || "unknown";
+      treatmentGroup = "iframe";
+    }
+  } else if (segments.length >= 2) {
     topic = segments[0];
     
     if (segments.length >= 4) {
@@ -65,14 +100,14 @@ const extractUrlParams = () => {
           const fromMode = fromSegments[1];
           const fromVariant = fromSegments[2];
           originalTreatmentGroup = `${fromMode}_${fromVariant}`;
-          // 保存原始页面路径，用于返回导航
-          localStorage.setItem("originalPathname", from);
+          // 保存原始页面路径，用于返回导航 (使用sessionStorage实现标签页隔离)
+          sessionStorage.setItem("originalPathname", from);
         } else {
           originalTreatmentGroup = treatmentGroup;
         }
       } else {
-        // 尝试从localStorage获取之前保存的原始treatment group
-        const savedOriginalTreatmentGroup = localStorage.getItem("original_treatment_group");
+        // 尝试从sessionStorage获取之前保存的原始treatment group (标签页隔离)
+        const savedOriginalTreatmentGroup = sessionStorage.getItem("original_treatment_group");
         if (savedOriginalTreatmentGroup) {
           originalTreatmentGroup = savedOriginalTreatmentGroup;
         } else {
@@ -142,9 +177,70 @@ const saveSessionToDatabase = async (
   }
 };
 
-// Get current UTC timestamp in milliseconds
+// Get current UTC timestamp as Date object
 const getCurrentUTCTimestamp = () => {
-  return Date.now();
+  return new Date();
+};
+
+// Helper function to revive Date objects from JSON
+const reviveDates = (key: string, value: any): any => {
+  if (typeof value === 'string' && (key.includes('time') || key === 'timestamp' || key === 'returnTimestamp')) {
+    return new Date(value);
+  }
+  return value;
+};
+
+// Helper function to get participant-specific session key for sessionStorage
+const getSessionKey = (): string => {
+  const { participant_id } = extractUrlParams();
+  return `current_task_session_${participant_id}`;
+};
+
+// Helper function to get participant-specific click tracking keys for sessionStorage
+const getClickEventKey = (): string => {
+  const { participant_id } = extractUrlParams();
+  return `current_click_event_${participant_id}`;
+};
+
+const getClickStartTimeKey = (): string => {
+  const { participant_id } = extractUrlParams();
+  return `click_start_time_${participant_id}`;
+};
+
+// Helper function to safely parse session data from sessionStorage
+const parseSessionFromStorage = (sessionRaw: string): TaskSession | null => {
+  try {
+    const parsed = JSON.parse(sessionRaw, reviveDates);
+    // Ensure all timestamp fields are Date objects
+    if (parsed.task_start_time && !(parsed.task_start_time instanceof Date)) {
+      parsed.task_start_time = new Date(parsed.task_start_time);
+    }
+    if (parsed.click_sequence) {
+      parsed.click_sequence.forEach((c: any) => {
+        if (c.click_time && !(c.click_time instanceof Date)) {
+          c.click_time = new Date(c.click_time);
+        }
+      });
+    }
+    if (parsed.show_more_interactions) {
+      parsed.show_more_interactions.forEach((s: any) => {
+        if (s.click_time && !(s.click_time instanceof Date)) {
+          s.click_time = new Date(s.click_time);
+        }
+      });
+    }
+    if (parsed.show_all_interactions) {
+      parsed.show_all_interactions.forEach((s: any) => {
+        if (s.click_time && !(s.click_time instanceof Date)) {
+          s.click_time = new Date(s.click_time);
+        }
+      });
+    }
+    return parsed;
+  } catch (error) {
+    console.error("Failed to parse session from storage:", error);
+    return null;
+  }
 };
 
 // 提取公共逻辑：获取下一个点击顺序
@@ -180,12 +276,15 @@ const createNewSession = async (): Promise<TaskSession> => {
     page_click_statics_4: 0,
   };
 
-  console.log("Creating new session:", newSession);
-  localStorage.setItem("current_task_session", JSON.stringify(newSession));
+  console.log(`Creating new session for participant ${participant_id}:`, newSession);
   
-  // Store the original treatment group for navigation
+  // Use participant-specific session key in sessionStorage
+  const sessionKey = `current_task_session_${participant_id}`;
+  sessionStorage.setItem(sessionKey, JSON.stringify(newSession));
+  
+  // Store the original treatment group for navigation (使用sessionStorage实现标签页隔离)
   if (originalTreatmentGroup) {
-    localStorage.setItem("original_treatment_group", originalTreatmentGroup);
+    sessionStorage.setItem("original_treatment_group", originalTreatmentGroup);
   }
 
   // Save to database asynchronously
@@ -197,51 +296,83 @@ const createNewSession = async (): Promise<TaskSession> => {
 
 // Get current task session
 const getCurrentTaskSession = async (): Promise<TaskSession> => {
-  const { topic, treatmentGroup, originalTreatmentGroup } = extractUrlParams();
+  const { topic, treatmentGroup, originalTreatmentGroup, participant_id } = extractUrlParams();
   const taskType = getTaskType(topic);
 
-  // Try to get existing session
-  const existingSession = localStorage.getItem("current_task_session");
+  // Use participant-specific session key to isolate sessions by RID
+  const sessionKey = `current_task_session_${participant_id}`;
+  
+  // Debug: Log current sessionStorage state for dwell time tracking
+  const clickEventKey = getClickEventKey();
+  const clickStartTimeKey = getClickStartTimeKey();
+  const hasClickEvent = sessionStorage.getItem(clickEventKey) !== null;
+  const hasClickStartTime = sessionStorage.getItem(clickStartTimeKey) !== null;
+  console.log("🔍 getCurrentTaskSession debug:", {
+    url: window.location.href,
+    topic,
+    treatmentGroup,
+    participant_id,
+    sessionKey,
+    hasClickEvent,
+    hasClickStartTime
+  });
+  
+  // Try to get existing session (participant-specific) from sessionStorage
+  const existingSession = sessionStorage.getItem(sessionKey);
   if (existingSession) {
     try {
-      const session: TaskSession = JSON.parse(existingSession);
+      const session: TaskSession | null = parseSessionFromStorage(existingSession);
+      if (!session) {
+        throw new Error("Failed to parse session from storage");
+      }
       console.log(session);
 
       // For task continuity, we should maintain the same task if:
       // 1. Same topic and task type
       // 2. Either same treatment group OR navigating to/from AI Mode within same variant
+      // 3. OR navigating to iframe pages (for dwell time tracking continuity)
+      const isIframeNavigation = treatmentGroup.includes("CmuWebPageshmtl") || 
+                                treatmentGroup.includes("AI-overviewHtml") || 
+                                treatmentGroup.includes("AI-modeHtml");
+      
       const isSameTask = session.task_topic === topic && 
                         session.task_type === taskType && 
                         (session.treatment_group === treatmentGroup || 
                          session.treatment_group === originalTreatmentGroup ||
-                         (treatmentGroup === "ai-mode" && originalTreatmentGroup && session.treatment_group === originalTreatmentGroup));
+                         (treatmentGroup === "ai-mode" && originalTreatmentGroup && session.treatment_group === originalTreatmentGroup) ||
+                         isIframeNavigation); // Allow iframe navigation to maintain session continuity
 
       if (!isSameTask) {
         console.log(
           "Session parameters changed, ending current session and creating new one"
         );
+        console.log("🚨 IMPORTANT: About to end session - this might clear dwell time data!");
+        console.log("Current sessionStorage state:", {
+          hasClickEvent: sessionStorage.getItem(getClickEventKey()) !== null,
+          hasClickStartTime: sessionStorage.getItem(getClickStartTimeKey()) !== null
+        });
         endTaskSession();
         return await createNewSession();
       }
       
-      // Store the original path for navigation purposes
+      // Store the original path for navigation purposes (使用sessionStorage实现标签页隔离)
       if (originalTreatmentGroup && originalTreatmentGroup !== treatmentGroup) {
-        localStorage.setItem("original_treatment_group", originalTreatmentGroup);
+        sessionStorage.setItem("original_treatment_group", originalTreatmentGroup);
       }
       
       return session;
     } catch (error) {
-      console.error("Failed to parse existing session from localStorage, creating new session:", error);
-      localStorage.removeItem("current_task_session");
+      console.error("Failed to parse existing session from sessionStorage, creating new session:", error);
+      sessionStorage.removeItem(sessionKey);
       return await createNewSession();
     }
   } else {
-    console.log("No existing session found, creating new one");
+    console.log(`No existing session found for participant ${participant_id}, creating new one`);
     return await createNewSession();
   }
 };
 
-// Store link click in localStorage
+// Store link click in sessionStorage
 export const trackLinkClick = async (
   componentName: ComponentName,
   linkIndex: number,
@@ -329,8 +460,10 @@ export const trackLinkClick = async (
   // // Add click to session
   // session.click_sequence.push(clickEvent)
 
-  localStorage.setItem("current_click_event", JSON.stringify(clickEvent));
-  console.log("💾 Click event saved:", clickEvent.page_id);
+  const clickEventKey = getClickEventKey();
+  sessionStorage.setItem(clickEventKey, JSON.stringify(clickEvent));
+  console.log("💾 Click event saved to sessionStorage:", clickEvent.page_id);
+  console.log("💾 Full click event:", clickEvent);
 
   if (componentName.includes("SearchResults")) {
     const pageNum = getPageNumber(componentName);
@@ -347,7 +480,8 @@ export const trackLinkClick = async (
 
   console.log("当前session.click_sequence:", session);
 
-  localStorage.setItem("current_task_session", JSON.stringify(session));
+  const sessionKey = getSessionKey();
+  sessionStorage.setItem(sessionKey, JSON.stringify(session));
 
   console.log(`Tracked click: ${pageId} - "${linkText}", updating database...`);
 
@@ -360,9 +494,15 @@ export const trackLinkClick = async (
 
   // Store click info for dwell time calculation
   const clickId = `${session.participant_id}_${session.task_topic}_${session.treatment_group}_${clickEvent.click_order}`;
-  localStorage.setItem("current_click_id", clickId);
-  localStorage.setItem("click_start_time", Date.now().toString());
-  console.log("⏰ Click timer started");
+  const clickStartTimeKey = getClickStartTimeKey();
+  sessionStorage.setItem(clickStartTimeKey, Date.now().toString());
+  console.log("⏰ Click timer started at:", new Date().toISOString());
+  console.log("⏰ Stored values in sessionStorage:", {
+    click_event_key: clickEventKey,
+    click_start_time_key: clickStartTimeKey,
+    current_click_event: !!sessionStorage.getItem(clickEventKey),
+    click_start_time: sessionStorage.getItem(clickStartTimeKey)
+  });
 
   return clickId;
 };
@@ -391,7 +531,8 @@ export const trackShowMoreClick = async (
   currSession.show_more_interactions.push(showMoreInteraction);
 
   // Add button interaction to session
-  localStorage.setItem("current_task_session", JSON.stringify(currSession));
+  const sessionKey = getSessionKey();
+  sessionStorage.setItem(sessionKey, JSON.stringify(currSession));
 
   console.log("Tracked button click, updating database...");
   saveSessionToDatabase(currSession);
@@ -416,7 +557,8 @@ export const trackShowAllClick = async (
   currSession.show_all_interactions.push(showAllInteraction);
 
   // Add button interaction to session
-  localStorage.setItem("current_task_session", JSON.stringify(currSession));
+  const sessionKey = getSessionKey();
+  sessionStorage.setItem(sessionKey, JSON.stringify(currSession));
 
   console.log("Tracked button click, updating database...");
   saveSessionToDatabase(currSession);
@@ -442,46 +584,72 @@ export const trackReferenceLinkClick = async (
 
 let isTracking = false; // in-memory flag to prevent duplicate processing
 
-export const trackReturnFromLink = async (): Promise<void> => {
+export const trackReturnFromLink = async (caller?: string): Promise<void> => {
+  // 获取调用堆栈信息
+  const stack = new Error().stack;
+  const callerInfo = stack?.split('\n')[2]?.trim() || 'unknown';
+  const timestamp = new Date().toISOString();
+  
   console.log("🔍 trackReturnFromLink called");
+  console.log("📍 Called from:", caller || 'not specified');
+  console.log("📍 Stack trace:", callerInfo);
+  console.log("⏰ Timestamp:", timestamp);
+  console.log("🌐 Current URL:", window.location.href);
+  console.log("📄 Document visibility:", document.visibilityState);
+  console.log("🎯 Window focused:", document.hasFocus());
   
   if (isTracking) {
     console.log("⏳ Already tracking, skipping...");
+    console.log("🚫 Tracking blocked by:", caller || 'not specified');
     return;
   }
   
-  const clickEventRaw = localStorage.getItem("current_click_event");
-  console.log("💾 current_click_event in localStorage:", clickEventRaw ? "EXISTS" : "NOT FOUND");
+  const clickEventKey = getClickEventKey();
+  const clickEventRaw = sessionStorage.getItem(clickEventKey);
+  console.log("💾 current_click_event in sessionStorage:", clickEventRaw ? "EXISTS" : "NOT FOUND");
   
   if (!clickEventRaw) {
     console.log("❌ No click event found, user did not come from a tracked link");
+    console.log("❌ Check details:", {
+      caller: caller || 'not specified',
+      clickEventKey,
+      sessionStorageKeys: Object.keys(sessionStorage),
+      hasAnyClickEvent: Object.keys(sessionStorage).some(key => key.includes('click_event'))
+    });
     return;
   }
 
   console.log("✅ User returned from a tracked link, processing dwell time...");
+  console.log("✅ Dwell time processing triggered by:", caller || 'not specified');
   isTracking = true; // lock
 
   try {
     let clickEvent: ClickEvent;
     try {
-      clickEvent = JSON.parse(clickEventRaw);
+      const parsed = JSON.parse(clickEventRaw, reviveDates);
+      // Ensure click_time is a Date object
+      if (parsed.click_time && !(parsed.click_time instanceof Date)) {
+        parsed.click_time = new Date(parsed.click_time);
+      }
+      clickEvent = parsed;
     } catch (parseError) {
-      console.error("Failed to parse click event from localStorage:", parseError);
-      localStorage.removeItem("current_click_event");
-      localStorage.removeItem("click_start_time");
+      console.error("Failed to parse click event from sessionStorage:", parseError);
+      sessionStorage.removeItem(clickEventKey);
+      sessionStorage.removeItem(getClickStartTimeKey());
       return;
     }
 
-    const startTime = localStorage.getItem("click_start_time");
+    const clickStartTimeKey = getClickStartTimeKey();
+    const startTime = sessionStorage.getItem(clickStartTimeKey);
     
     console.log("📊 Click event data:", {
       clickEvent: clickEvent,
       startTime: startTime ? new Date(Number(startTime)).toLocaleTimeString() : "NOT FOUND"
     });
 
-    localStorage.removeItem("current_click_event");
-    localStorage.removeItem("click_start_time");
-    console.log("🗑️ Cleared localStorage: current_click_event and click_start_time");
+    sessionStorage.removeItem(clickEventKey);
+    sessionStorage.removeItem(clickStartTimeKey);
+    console.log("🗑️ Cleared sessionStorage: click event and start time keys");
 
     if (!clickEvent || !startTime) {
       console.log("❌ Missing click event or start time, aborting...");
@@ -496,7 +664,10 @@ export const trackReturnFromLink = async (): Promise<void> => {
       dwellTimeMs: dwellTimeMs,
       dwellTimeSec: dwellTimeSec,
       startTime: new Date(Number(startTime)).toLocaleTimeString(),
-      endTime: new Date().toLocaleTimeString()
+      endTime: new Date().toLocaleTimeString(),
+      triggeredBy: caller || 'not specified',
+      clickEventPageId: clickEvent.page_id,
+      clickEventTaskId: clickEvent.task_id
     });
 
     const session = await getCurrentTaskSession();
@@ -504,9 +675,14 @@ export const trackReturnFromLink = async (): Promise<void> => {
     console.log("🔍 Checking for duplicate click events...");
     
     // 使用click_time和page_id组合来检查重复
+    // Convert dates to ISO strings for comparison since JSON parse/stringify converts Date to string
+    const clickTimeString = clickEvent.click_time instanceof Date ? clickEvent.click_time.toISOString() : new Date(clickEvent.click_time).toISOString();
     if (
       session.click_sequence.some(
-        (c) => c.click_time === clickEvent.click_time && c.page_id === clickEvent.page_id
+        (c) => {
+          const existingClickTimeString = c.click_time instanceof Date ? c.click_time.toISOString() : new Date(c.click_time).toISOString();
+          return existingClickTimeString === clickTimeString && c.page_id === clickEvent.page_id;
+        }
       )
     ) {
       console.log("🚫 Duplicate click event detected, skipping...");
@@ -514,9 +690,17 @@ export const trackReturnFromLink = async (): Promise<void> => {
     }
 
     session.click_sequence.push(clickEvent);
-    localStorage.setItem("current_task_session", JSON.stringify(session));
+    const sessionKey = getSessionKey();
+    sessionStorage.setItem(sessionKey, JSON.stringify(session));
 
     console.log(`✅ Dwell time recorded: ${dwellTimeSec}s, updating database...`);
+    console.log("💾 Database update details:", {
+      sessionTaskId: session.task_id,
+      participantId: session.participant_id,
+      clickSequenceLength: session.click_sequence.length,
+      lastClickPageId: session.click_sequence[session.click_sequence.length - 1]?.page_id,
+      triggeredBy: caller || 'not specified'
+    });
     await saveSessionToDatabase(session);
     console.log("💾 Database updated successfully");
   } finally {
@@ -525,19 +709,23 @@ export const trackReturnFromLink = async (): Promise<void> => {
 };
 
 export const endTaskSession = (): void => {
-  const sessionRaw = localStorage.getItem("current_task_session");
+  const sessionKey = getSessionKey();
+  const sessionRaw = sessionStorage.getItem(sessionKey);
   if (!sessionRaw) return;
 
   let taskId = "unknown";
   try {
-    const session: TaskSession = JSON.parse(sessionRaw);
+    const session: TaskSession | null = parseSessionFromStorage(sessionRaw);
+    if (!session) {
+      throw new Error("Failed to parse session from storage");
+    }
     taskId = `${session.participant_id}_${session.task_topic}_${session.treatment_group}`;
     saveSessionToDatabase(session);
   } catch (error) {
     console.error("Failed to parse session when ending task session:", error);
   }
 
-  localStorage.removeItem("current_task_session");
+  sessionStorage.removeItem(sessionKey);
 
   console.log(`Task ${taskId} ended, saving final state to database...`);
 };
