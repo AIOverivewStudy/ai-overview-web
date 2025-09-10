@@ -60,6 +60,7 @@ export function AiOverview() {
   const [showMore, setShowMore] = useState(false)
   const [showAllReferences, setShowAllReferences] = useState(false)
   const [filteredReferenceIndexes, setFilteredReferenceIndexes] = useState<number[] | null>(null)
+  const [showFilteredReferencesOverlay, setShowFilteredReferencesOverlay] = useState(false)
   const textContentRef = useRef<HTMLDivElement>(null)
   const [textContentHeight, setTextContentHeight] = useState<number>(0)
   const data = aiOverviewData as AIOverviewData
@@ -88,21 +89,23 @@ export function AiOverview() {
     if (referenceIndexes) {
       // Track the reference link click
       trackReferenceLinkClick(referenceIndexes, "AiOverview");
-    }
-    
-    if (filteredReferenceIndexes && JSON.stringify(filteredReferenceIndexes) === JSON.stringify(referenceIndexes)) {
-      setFilteredReferenceIndexes(null)
-    } else if (referenceIndexes) {
+      
+      // Show overlay with filtered references instead of modifying the main list
       setFilteredReferenceIndexes(referenceIndexes)
-      setShowAllReferences(false)
+      setShowFilteredReferencesOverlay(true)
     }
   }
 
   const getDisplayedReferences = () => {
+    // Always return all references for the main list
+    return data.references
+  }
+
+  const getFilteredReferences = () => {
     if (filteredReferenceIndexes) {
       return data.references.filter((ref) => filteredReferenceIndexes.includes(ref.index))
     }
-    return data.references
+    return []
   }
 
   const renderHighlightedText = (text: string, highlightedWords: string[] = []) => {
@@ -298,7 +301,7 @@ export function AiOverview() {
 
           {/* References Panel - Fixed width with proper scrollable container */}
           <div className="w-80 relative flex-shrink-0">
-            <div className="bg-gray-50 rounded-lg p-4">
+            <div className="bg-gray-50 rounded-lg p-4 relative">
               {!showMore ? (
                 /* Before "Show more" - Simple container with 3 cards */
                 <div className="relative">
@@ -486,17 +489,6 @@ export function AiOverview() {
                     </div>
                   </div>
 
-                  {/* Optional "Show all references" when filtered */}
-                  {filteredReferenceIndexes && (
-                    <div className="absolute bottom-0 left-0 right-0 bg-gray-50 pt-2">
-                      <button
-                        onClick={() => setFilteredReferenceIndexes(null)}
-                        className="flex items-center justify-center w-full bg-blue-100 text-blue-700 py-3 rounded-full hover:bg-blue-200"
-                      >
-                        <span>Show all references</span>
-                      </button>
-                    </div>
-                  )}
                 </div>
               ) : (
                 // Initial 3 references (your existing block)
@@ -556,10 +548,85 @@ export function AiOverview() {
                   <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-gray-100 to-transparent pointer-events-none"></div>
                 </div>
               )}
+
+              {/* Filtered References Overlay */}
+              {showFilteredReferencesOverlay && filteredReferenceIndexes && (
+                <div className="absolute inset-0 bg-white z-10 rounded-lg">
+                  <div className="h-full flex flex-col">
+                    {/* Header */}
+                    <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                      <h3 className="text-lg font-medium text-gray-900">
+                        Related References ({getFilteredReferences().length})
+                      </h3>
+                      <button
+                        onClick={() => {
+                          setShowFilteredReferencesOverlay(false)
+                          setFilteredReferenceIndexes(null)
+                        }}
+                        className="p-2 rounded-full hover:bg-gray-100"
+                      >
+                        <X className="h-5 w-5 text-gray-500" />
+                      </button>
+                    </div>
+
+                    {/* Scrollable filtered references */}
+                    <div className="flex-1 overflow-y-auto p-4">
+                      <div className="space-y-4">
+                        {getFilteredReferences().map((ref, index) => (
+                          <div
+                            key={index}
+                            className="bg-gray-50 border border-gray-200 rounded-md overflow-hidden shadow-sm"
+                          >
+                            <div className="flex">
+                              <div className="flex-1 p-3">
+                                <h3 className="text-blue-700 hover:underline text-base font-medium">
+                                  <TrackedLink
+                                    href={ref.link}
+                                    componentName="AiOverview-References"
+                                    linkIndex={ref.index}
+                                  >
+                                    {ref.title}
+                                  </TrackedLink>
+                                </h3>
+                                <p className="text-xs text-gray-700 mt-2 line-clamp-3">
+                                  {ref.snippet}
+                                </p>
+                                <div className="flex items-center mt-2">
+                                  <WebsiteFavicon
+                                    url={ref.host ? `https://${ref.host}` : ref.link}
+                                    size={16}
+                                    fallbackText={getWebsiteName(ref.host ? `https://${ref.host}` : ref.link).charAt(0)}
+                                  />
+                                  <span className="ml-2 text-xs text-gray-600">
+                                    {getWebsiteName(ref.host ? `https://${ref.host}` : ref.link)}
+                                  </span>
+                                  <button className="ml-auto">
+                                    <MoreVertical className="h-4 w-4 text-gray-500" />
+                                  </button>
+                                </div>
+                              </div>
+                              <div className="w-20 h-14 flex-shrink-0">
+                                <Image
+                                  src={getImageForReference(ref.index)}
+                                  alt="Article thumbnail"
+                                  width={80}
+                                  height={56}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
+
     </div>
   )
 }

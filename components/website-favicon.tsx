@@ -33,6 +33,15 @@ export function WebsiteFavicon({ url, size = 24, className = "", fallbackText }:
     setIsLoading(false)
   }
 
+  // 如果还没有挂载到客户端，显示简单的占位符
+  if (!isMounted) {
+    return (
+      <div className={`relative ${className}`} style={{ width: size, height: size }}>
+        <div className="bg-gray-200 rounded-full" style={{ width: size, height: size }} />
+      </div>
+    )
+  }
+
   if (imageError || !domain) {
     // Fallback to colored circle with first letter
     const colors = [
@@ -60,13 +69,13 @@ export function WebsiteFavicon({ url, size = 24, className = "", fallbackText }:
 
   return (
     <div className={`relative ${className}`} style={{ width: size, height: size }}>
-      {isMounted && isLoading && <div className="bg-gray-200 rounded-full animate-pulse" style={{ width: size, height: size }} />}
+      {isLoading && <div className="bg-gray-200 rounded-full animate-pulse" style={{ width: size, height: size }} />}
       <Image
         src={faviconUrl || "/placeholder.svg"}
         alt={`${domain} favicon`}
         width={size}
         height={size}
-        className={`rounded-full ${isMounted && isLoading ? "opacity-0" : "opacity-100"} transition-opacity`}
+        className={`rounded-full ${isLoading ? "opacity-0" : "opacity-100"} transition-opacity`}
         onError={handleImageError}
         onLoad={handleImageLoad}
         unoptimized // Since we're loading external favicons
