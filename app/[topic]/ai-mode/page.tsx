@@ -6,7 +6,7 @@ import { Mic, MoreVertical, Clock, Edit, X, LinkIcon } from "lucide-react"
 import { TrackedLink } from "@/components/tracked-link"
 import { WebsiteFavicon } from "@/components/website-favicon"
 import { getWebsiteName } from "@/lib/favicon-service"
-import { trackShowAllContentClick, trackShowAllReferencesClick, trackReferenceLinkClick } from "@/lib/analytics"
+import { trackShowAllContentClick, trackReferenceLinkClick } from "@/lib/analytics"
 import { useParams, notFound } from "next/navigation"
 
 // 动态数据加载函数
@@ -128,6 +128,7 @@ export default function AiModePage() {
   }
   const [showAllReferences, setShowAllReferences] = useState(false)
   const [filteredReferenceIndexes, setFilteredReferenceIndexes] = useState<number[] | null>(null)
+  const [showFilteredReferencesOverlay, setShowFilteredReferencesOverlay] = useState(false)
 
   // Add dwell time tracking specifically for AI Mode page
   useEffect(() => {
@@ -170,14 +171,19 @@ export default function AiModePage() {
   }, []);
   
   const displayedReferences = (() => {
-    if (filteredReferenceIndexes) {
-      return data.references.filter((ref) => filteredReferenceIndexes.includes(ref.index))
-    }
+    // Always return all references for the main list or sliced for initial view
     if (!showAllReferences) {
       return data.references.slice(0, 3)
     }
     return data.references
   })()
+
+  const getFilteredReferences = () => {
+    if (filteredReferenceIndexes) {
+      return data.references.filter((ref) => filteredReferenceIndexes.includes(ref.index))
+    }
+    return []
+  }
   
   const getImageForReference = (referenceIndex: number) => {
     return `${pageConfig.imagePath}/${referenceIndex}.jpeg`
@@ -205,13 +211,10 @@ export default function AiModePage() {
     if (referenceIndexes) {
       // Track the reference link click
       trackReferenceLinkClick(referenceIndexes, "AiMode");
-    }
-    
-    if (filteredReferenceIndexes && JSON.stringify(filteredReferenceIndexes) === JSON.stringify(referenceIndexes)) {
-      setFilteredReferenceIndexes(null)
-    } else if (referenceIndexes) {
+      
+      // Show overlay with filtered references instead of modifying the main list
       setFilteredReferenceIndexes(referenceIndexes)
-      setShowAllReferences(false)
+      setShowFilteredReferencesOverlay(true)
     }
   }
 
@@ -506,10 +509,7 @@ export default function AiModePage() {
                   {/* Scrollable content container */}
                   <div className="h-full overflow-y-auto pr-2">
                     <div className="space-y-4">
-                      {(showAllReferences || filteredReferenceIndexes
-                        ? displayedReferences
-                        : displayedReferences
-                      ).map((ref, index) => (
+                      {displayedReferences.map((ref, index) => (
                         <div
                           key={index}
                           className="bg-white border border-gray-200 rounded-md overflow-hidden shadow-sm"
@@ -567,7 +567,7 @@ export default function AiModePage() {
                   </div>
 
                   {/* Show all button - positioned at bottom */}
-                  {!showAllReferences && !filteredReferenceIndexes && (
+                  {!showAllReferences && (
                     <div className="absolute bottom-0 left-0 right-0 bg-gray-50 pt-2">
                       <button
                         onClick={() => {
@@ -581,18 +581,83 @@ export default function AiModePage() {
                     </div>
                   )}
 
-                  {/* Show all references button when filtered */}
-                  {filteredReferenceIndexes && (
-                    <div className="absolute bottom-0 left-0 right-0 bg-gray-50 pt-2">
-                      <button
-                        onClick={() => {
-                          setFilteredReferenceIndexes(null);
-                          trackShowAllReferencesClick("AiMode");
-                        }}
-                        className="flex items-center justify-center w-full bg-blue-100 text-blue-700 py-3 rounded-full hover:bg-blue-200"
-                      >
-                        <span>Show all references</span>
-                      </button>
+                  {/* Filtered References Overlay */}
+                  {showFilteredReferencesOverlay && filteredReferenceIndexes && (
+                    <div className="absolute inset-0 bg-white z-10 rounded-lg">
+                      <div className="h-full flex flex-col">
+                        {/* Header */}
+                        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                          <h3 className="text-lg font-medium text-gray-900">
+                            Related References ({getFilteredReferences().length})
+                          </h3>
+                          <button
+                            onClick={() => {
+                              setShowFilteredReferencesOverlay(false)
+                              setFilteredReferenceIndexes(null)
+                            }}
+                            className="p-2 rounded-full hover:bg-gray-100"
+                          >
+                            <X className="h-5 w-5 text-gray-500" />
+                          </button>
+                        </div>
+
+                        {/* Scrollable filtered references */}
+                        <div className="flex-1 overflow-y-auto p-4">
+                          <div className="space-y-4">
+                            {getFilteredReferences().map((ref, index) => (
+                              <div
+                                key={index}
+                                className="bg-white border border-gray-200 rounded-md overflow-hidden shadow-sm"
+                              >
+                                <div className="flex">
+                                  <div className="flex-1 p-2">
+                                    <h3 className="text-blue-700 hover:underline text-base font-medium">
+                                      <TrackedLink
+                                        componentName="AIMode"
+                                        linkIndex={ref.index}
+                                        href={ref.link}
+                                      >
+                                        {ref.title}
+                                      </TrackedLink>
+                                    </h3>
+                                    <p className="text-xs text-gray-700 mt-1 line-clamp-2">
+                                      {ref.snippet}
+                                    </p>
+                                    <div className="flex items-center mt-1">
+                                      <WebsiteFavicon
+                                        url={
+                                          ref.host ? `https://${ref.host}` : ref.link
+                                        }
+                                        size={16}
+                                        fallbackText={getWebsiteName(
+                                          ref.host ? `https://${ref.host}` : ref.link
+                                        ).charAt(0)}
+                                      />
+                                      <span className="ml-2 text-xs text-gray-600">
+                                        {getWebsiteName(
+                                          ref.host ? `https://${ref.host}` : ref.link
+                                        )}
+                                      </span>
+                                      <button className="ml-auto">
+                                        <MoreVertical className="h-4 w-4 text-gray-500" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <div className="w-24 h-16">
+                                    <Image
+                                      src={getImageForReference(ref.index)}
+                                      alt="Article thumbnail"
+                                      width={96}
+                                      height={64}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
