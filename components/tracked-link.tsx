@@ -5,14 +5,23 @@ import Link from "next/link"
 import { trackLinkClick } from "@/lib/analytics"
 import type { ComponentName } from "@/types/api"
 
-interface TrackedLinkProps {
-  href: string
-  componentName: ComponentName
-  linkIndex: number
-  linkPage?: number
-  className?: string
-  children: ReactNode
-}
+type TrackedLinkProps =
+  | {
+      href: string;
+      componentName: ComponentName;
+      linkIndex: number;
+      linkPage?: number;
+      className?: string;
+      children: ReactNode;
+    }
+  | {
+      href: string;
+      componentName: "clickPagination_";
+      linkIndex: number | string;
+      linkPage?: number;
+      className?: string;
+      children: ReactNode;
+    };
 
 export function TrackedLink ({ href, componentName, linkIndex, className, children }: TrackedLinkProps) {
   const handleClick = async () => {

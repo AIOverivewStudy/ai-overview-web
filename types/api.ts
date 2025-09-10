@@ -34,7 +34,7 @@ export type PageContext =
   | "search_results"     // 普通搜索结果页面
   | "ai_mode"            // AI模式页面
 
-// 交互按钮组件名称（用于 trackShowMoreClick 和 trackShowAllClick）
+// 交互按钮组件名称（用于 trackShowAllContentClick 和 trackShowAllReferencesClick）
 export type InteractionComponentName = 
   | "AiOverview"         // AI概览展开
   | "AiMode"             // AI模式展开
@@ -54,7 +54,7 @@ export interface ClickEvent {
   page_context?: PageContext  // 标记事件发生的页面上下文
 }
 
-export interface ShowMoreInteraction {
+export interface ShowAllContentClick {
   task_id: string
   click_order: number
   component_name: string
@@ -62,7 +62,7 @@ export interface ShowMoreInteraction {
   page_context?: PageContext  // 标记事件发生的页面上下文
 }
 
-export interface ShowAllInteraction {
+export interface ShowAllReferencesClick {
   task_id: string
   click_order: number
   component_name: string
@@ -83,8 +83,8 @@ export interface TaskSession {
   page_click_statics_3: number
   page_click_statics_4: number
   click_sequence: ClickEvent[]
-  show_more_interactions: ShowMoreInteraction[]
-  show_all_interactions: ShowAllInteraction[]
+  show_all_content_clicks: ShowAllContentClick[]
+  show_all_references_clicks: ShowAllReferencesClick[]
 }
 
 // 其他用到的类型

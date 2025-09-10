@@ -5,7 +5,7 @@ import Image from "next/image"
 import { usePathname } from "next/navigation"
 import { ChevronDown, ChevronRight, ChevronUp } from "lucide-react"
 import { TrackedLink } from "@/components/tracked-link"
-import { trackShowMoreClick } from "@/lib/analytics"
+import { trackShowAllContentClick } from "@/lib/analytics"
 
 export interface DiscussionsAndForumsData {
   url: string;
@@ -92,7 +92,7 @@ export function DiscussionsAndForums() {
 
       <div className="mt-8 flex justify-center">
         <button 
-          onClick={() => trackShowMoreClick("DiscussionsAndForums")}
+          onClick={() => trackShowAllContentClick("DiscussionsAndForums")}
           className="px-6 py-2 rounded-full bg-gray-100 hover:bg-gray-200 text-sm font-medium text-gray-700 flex items-center gap-2"
         >
           See more <ChevronRight size={16} />

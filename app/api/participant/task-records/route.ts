@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { TaskSession } from '@/types/api'
 
 // 序列化 Date 对象和 BigInt 为 JSON
-const serializeForJSON = (obj: any): any => {
+const serializeForJSON = (obj: unknown): unknown => {
   return JSON.parse(JSON.stringify(obj, (key, value) => {
     if (typeof value === 'bigint') {
       return Number(value)
@@ -31,15 +31,15 @@ export async function POST(request: NextRequest) {
 
     // 分离嵌套数据和主数据，排除id字段（由数据库自动生成）
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { id: _, click_sequence, show_more_interactions, show_all_interactions, ...mainData } = data
+    const { id: _, click_sequence, show_all_content_clicks, show_all_references_clicks, ...mainData } = data
 
     // 先获取现有记录以确定哪些子记录需要新增
     const existingRecord = await prisma.taskRecord.findUnique({
       where: { task_id: data.task_id },
       include: {
         click_sequence: true,
-        show_more_interactions: true,
-        show_all_interactions: true,
+        show_all_content_clicks: true,
+        show_all_references_clicks: true,
       },
     })
 
@@ -50,11 +50,11 @@ export async function POST(request: NextRequest) {
         existingRecord.click_sequence.map(c => `${c.click_time.toISOString()}_${c.page_id}`)
       )
       // 使用click_time和component_name组合来识别重复的交互事件
-      const existingShowMoreKeys = new Set(
-        existingRecord.show_more_interactions.map(s => `${s.click_time.toISOString()}_${s.component_name}`)
+      const existingShowAllContentKeys = new Set(
+        existingRecord.show_all_content_clicks.map(s => `${s.click_time.toISOString()}_${s.component_name}`)
       )
-      const existingShowAllKeys = new Set(
-        existingRecord.show_all_interactions.map(s => `${s.click_time.toISOString()}_${s.component_name}`)
+      const existingShowAllReferencesKeys = new Set(
+        existingRecord.show_all_references_clicks.map(s => `${s.click_time.toISOString()}_${s.component_name}`)
       )
 
       // Handle dwell time updates: if a click event has the same click_time and page_id but different dwell_time,
@@ -90,16 +90,16 @@ export async function POST(request: NextRequest) {
         }
       }
       
-      const newShowMoreInteractions = (show_more_interactions || [])
-        .filter(s => !existingShowMoreKeys.has(`${s.click_time instanceof Date ? s.click_time.toISOString() : new Date(s.click_time).toISOString()}_${s.component_name}`))
+      const newShowAllContentClicks = (show_all_content_clicks || [])
+        .filter(s => !existingShowAllContentKeys.has(`${s.click_time instanceof Date ? s.click_time.toISOString() : new Date(s.click_time).toISOString()}_${s.component_name}`))
         .map(s => ({ 
           ...s, 
           task_id: data.task_id,
           click_time: s.click_time instanceof Date ? s.click_time : new Date(s.click_time)
         }))
       
-      const newShowAllInteractions = (show_all_interactions || [])
-        .filter(s => !existingShowAllKeys.has(`${s.click_time instanceof Date ? s.click_time.toISOString() : new Date(s.click_time).toISOString()}_${s.component_name}`))
+      const newShowAllReferencesClicks = (show_all_references_clicks || [])
+        .filter(s => !existingShowAllReferencesKeys.has(`${s.click_time instanceof Date ? s.click_time.toISOString() : new Date(s.click_time).toISOString()}_${s.component_name}`))
         .map(s => ({ 
           ...s, 
           task_id: data.task_id,
@@ -114,17 +114,17 @@ export async function POST(request: NextRequest) {
           click_sequence: {
             create: clickEventsToCreate,
           },
-          show_more_interactions: {
-            create: newShowMoreInteractions,
+          show_all_content_clicks: {
+            create: newShowAllContentClicks,
           },
-          show_all_interactions: {
-            create: newShowAllInteractions,
+          show_all_references_clicks: {
+            create: newShowAllReferencesClicks,
           },
         },
         include: {
           click_sequence: true,
-          show_more_interactions: true,
-          show_all_interactions: true,
+          show_all_content_clicks: true,
+          show_all_references_clicks: true,
         },
       })
       return NextResponse.json(serializeForJSON(result), { status: 200 })
@@ -141,15 +141,15 @@ export async function POST(request: NextRequest) {
               click_time: c.click_time instanceof Date ? c.click_time : new Date(c.click_time)
             })),
           },
-          show_more_interactions: {
-            create: (show_more_interactions || []).map(s => ({ 
+          show_all_content_clicks: {
+            create: (show_all_content_clicks || []).map(s => ({ 
               ...s, 
               task_id: data.task_id,
               click_time: s.click_time instanceof Date ? s.click_time : new Date(s.click_time)
             })),
           },
-          show_all_interactions: {
-            create: (show_all_interactions || []).map(s => ({ 
+          show_all_references_clicks: {
+            create: (show_all_references_clicks || []).map(s => ({ 
               ...s, 
               task_id: data.task_id,
               click_time: s.click_time instanceof Date ? s.click_time : new Date(s.click_time)
@@ -158,8 +158,8 @@ export async function POST(request: NextRequest) {
         },
         include: {
           click_sequence: true,
-          show_more_interactions: true,
-          show_all_interactions: true,
+          show_all_content_clicks: true,
+          show_all_references_clicks: true,
         },
       })
       return NextResponse.json(serializeForJSON(result), { status: 201 })

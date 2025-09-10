@@ -4,7 +4,7 @@ import Image from "next/image"
 import { MoreVertical } from "lucide-react"
 import {usePathname} from "next/navigation"
 import { TrackedLink } from "@/components/tracked-link"
-import { trackShowAllClick } from "@/lib/analytics"
+import { trackShowAllContentClick } from "@/lib/analytics"
 
 interface VideoData {
   title: string
@@ -70,7 +70,7 @@ export function VideosSection() {
 
       <div className="mt-4 flex justify-center">
         <button 
-          onClick={() => trackShowAllClick("VideosSection")}
+          onClick={() => trackShowAllContentClick("VideosSection")}
           className="flex items-center justify-center gap-2 bg-gray-100 text-gray-800 py-3 px-6 rounded-full hover:bg-gray-200 w-full max-w-md"
         >
           <span>View all</span>

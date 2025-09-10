@@ -6,7 +6,7 @@ import { MoreVertical, ChevronDown, LinkIcon, X } from "lucide-react"
 import { WebsiteFavicon } from "@/components/website-favicon"
 import { getWebsiteName } from "@/lib/favicon-service"
 import { usePathname } from "next/navigation"
-import { trackShowMoreClick, trackShowAllClick, trackReferenceLinkClick } from "@/lib/analytics"
+import { trackShowAllContentClick, trackShowAllReferencesClick, trackReferenceLinkClick } from "@/lib/analytics"
 import { TrackedLink } from "@/components/tracked-link"
 
 interface TextBlock {
@@ -128,7 +128,7 @@ export function AiOverview() {
     // 保存状态到sessionStorage (标签页级别隔离)
     sessionStorage.setItem(`${pageKey}_showMore`, 'true')
     // Track the "Show more" button click
-    trackShowMoreClick("AiOverview")
+    trackShowAllContentClick("AiOverview")
   }
 
   const renderReferenceLink = (referenceIndexes?: number[]) => {
@@ -410,7 +410,7 @@ export function AiOverview() {
                         setShowAllReferences(true); 
                         // 保存状态到sessionStorage (标签页级别隔离)
                         sessionStorage.setItem(`${pageKey}_showAllReferences`, 'true')
-                        trackShowAllClick("AiOverview");
+                        trackShowAllReferencesClick("AiOverview");
                       }}
                       className="flex items-center justify-center w-full bg-blue-100 text-blue-700 py-3 rounded-full hover:bg-blue-200"
                     >

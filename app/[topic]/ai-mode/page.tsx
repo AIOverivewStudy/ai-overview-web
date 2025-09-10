@@ -1,12 +1,12 @@
 "use client"
 import Image from "next/image"
 import { SearchTabs } from "@/components/search-tabs"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Mic, MoreVertical, Clock, Edit, X, LinkIcon } from "lucide-react"
 import { TrackedLink } from "@/components/tracked-link"
 import { WebsiteFavicon } from "@/components/website-favicon"
 import { getWebsiteName } from "@/lib/favicon-service"
-import { trackShowAllClick, trackReferenceLinkClick } from "@/lib/analytics"
+import { trackShowAllContentClick, trackShowAllReferencesClick, trackReferenceLinkClick } from "@/lib/analytics"
 import { useParams, notFound } from "next/navigation"
 
 // 动态数据加载函数
@@ -128,6 +128,46 @@ export default function AiModePage() {
   }
   const [showAllReferences, setShowAllReferences] = useState(false)
   const [filteredReferenceIndexes, setFilteredReferenceIndexes] = useState<number[] | null>(null)
+
+  // Add dwell time tracking specifically for AI Mode page
+  useEffect(() => {
+    // Record page start time for AI Mode dwell time calculation
+    const pageStartTime = Date.now().toString();
+    sessionStorage.setItem('ai_mode_page_start_time', pageStartTime);
+    console.log("📊 AI Mode page start time recorded:", new Date(parseInt(pageStartTime)).toLocaleTimeString());
+
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        console.log("🔍 AI Mode page became visible, checking for dwell time...");
+        try {
+          const { trackReturnFromLink } = await import('@/lib/analytics');
+          await trackReturnFromLink("ai_mode_page_visible");
+        } catch (error) {
+          console.error("Failed to track dwell time on AI Mode page:", error);
+        }
+      }
+    };
+
+    const handlePageShow = async (event: PageTransitionEvent) => {
+      console.log("📄 AI Mode page show event, persisted:", event.persisted);
+      if (event.persisted) {
+        try {
+          const { trackReturnFromLink } = await import('@/lib/analytics');
+          await trackReturnFromLink("ai_mode_page_show_cached");
+        } catch (error) {
+          console.error("Failed to track dwell time on AI Mode page show:", error);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pageshow', handlePageShow);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pageshow', handlePageShow);
+    };
+  }, []);
   
   const displayedReferences = (() => {
     if (filteredReferenceIndexes) {
@@ -532,7 +572,7 @@ export default function AiModePage() {
                       <button
                         onClick={() => {
                           setShowAllReferences(true);
-                          trackShowAllClick("AiMode");
+                          trackShowAllContentClick("AiMode");
                         }}
                         className="flex items-center justify-center w-full bg-blue-100 text-blue-700 py-3 rounded-full hover:bg-blue-200"
                       >
@@ -547,7 +587,7 @@ export default function AiModePage() {
                       <button
                         onClick={() => {
                           setFilteredReferenceIndexes(null);
-                          trackShowAllClick("AiMode");
+                          trackShowAllReferencesClick("AiMode");
                         }}
                         className="flex items-center justify-center w-full bg-blue-100 text-blue-700 py-3 rounded-full hover:bg-blue-200"
                       >

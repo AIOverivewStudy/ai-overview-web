@@ -9,18 +9,19 @@ export function Pagination() {
   const pathname = usePathname()
 
   const pages = [1, 2, 3, 4, 5, "...", 10]
+  const maxPage = 10 // 实际最大页码
 
   const match = pathname.match(/^(.*?)(\/\d+)?\/?$/)
   const basePath = match?.[1] || ""
   const currentPage = parseInt(match?.[2]?.slice(1) || "1", 10)
 
   const previousPath = currentPage > 1 ? `${basePath}/${currentPage - 1}` : "#"
-  const nextPath = currentPage < pages.length ? `${basePath}/${currentPage + 1}` : "#"
+  const nextPath = currentPage < maxPage ? `${basePath}/${currentPage + 1}` : "#"
 
   return (
     <div className="flex items-center justify-center py-8">
       <div className="flex items-center">
-        <TrackedLink componentName="clickPagination_" linkIndex={-1} href={previousPath} className="flex items-center text-blue-600 mr-4 hover:underline">
+        <TrackedLink componentName="clickPagination_" linkIndex={currentPage - 1} href={previousPath} className="flex items-center text-blue-600 mr-4 hover:underline">
           <ChevronLeft className="h-5 w-5 mr-1" />
           <span>Previous</span>
         </TrackedLink>
@@ -58,7 +59,7 @@ export function Pagination() {
           })}
         </div>
 
-        <TrackedLink componentName="clickPagination_" linkIndex={-2} href={nextPath} className="flex items-center text-blue-600 ml-4 hover:underline">
+        <TrackedLink componentName="clickPagination_" linkIndex={currentPage + 1} href={nextPath} className="flex items-center text-blue-600 ml-4 hover:underline">
           <span>Next</span>
           <ChevronRight className="h-5 w-5 ml-1" />
         </TrackedLink>

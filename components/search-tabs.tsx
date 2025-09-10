@@ -1,8 +1,8 @@
 'use client'
 
-import React from "react"
+import React, { useState, useEffect } from "react"
 import { TrackedLink } from "@/components/tracked-link"
-import { usePathname } from "next/navigation"
+import { usePathname, useSearchParams } from "next/navigation"
 
 interface SearchTabsProps {
   currentPage?: string
@@ -10,9 +10,25 @@ interface SearchTabsProps {
 
 export function SearchTabs({ currentPage = "all" }: SearchTabsProps) {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const [ridParam, setRidParam] = useState<string | null>(null)
+
+  // Get RID parameter on the client side to avoid hydration mismatch
+  useEffect(() => {
+    const rid = searchParams.get('RID')
+    setRidParam(rid)
+  }, [searchParams])
 
   const match = pathname.match(/^(.*?)(\/\d+)?\/?$/)
   const basePath = match ? match[1].split('/')[1] ? `/${match[1].split('/')[1]}` : "" : "";
+
+  // Helper function to preserve URL parameters (especially RID)
+  const preserveUrlParams = (baseUrl: string): string => {
+    if (!ridParam) return baseUrl;
+    
+    const separator = baseUrl.includes('?') ? '&' : '?';
+    return `${baseUrl}${separator}RID=${encodeURIComponent(ridParam)}`;
+  };
 
   //  href for 'All' tab
   let allHref = "/"
@@ -27,12 +43,18 @@ export function SearchTabs({ currentPage = "all" }: SearchTabsProps) {
       // 尝试从sessionStorage获取原始的treatment group (标签页级别隔离)
       let originalPath = "/"
       try {
-        const originalTreatmentGroup = sessionStorage.getItem("original_treatment_group")
-        if (originalTreatmentGroup && originalTreatmentGroup.includes("_")) {
-          const [mode, variant] = originalTreatmentGroup.split("_")
-          originalPath = `/${topic}/${mode}/${variant}/1` // 直接返回，不使用iframe
+        // Only access sessionStorage on client side
+        if (typeof window !== 'undefined') {
+          const originalTreatmentGroup = sessionStorage.getItem("original_treatment_group")
+          if (originalTreatmentGroup && originalTreatmentGroup.includes("_")) {
+            const [mode, variant] = originalTreatmentGroup.split("_")
+            originalPath = `/${topic}/${mode}/${variant}/1` // 直接返回，不使用iframe
+          } else {
+            // 如果没有原始路径，默认返回middle-ai-overview/have-ai-mode
+            originalPath = `/${topic}/middle-ai-overview/have-ai-mode/1`
+          }
         } else {
-          // 如果没有原始路径，默认返回middle-ai-overview/have-ai-mode
+          // Server-side fallback
           originalPath = `/${topic}/middle-ai-overview/have-ai-mode/1`
         }
       } catch (error) {
@@ -40,10 +62,11 @@ export function SearchTabs({ currentPage = "all" }: SearchTabsProps) {
         originalPath = `/${topic}/middle-ai-overview/have-ai-mode/1`
       }
       
-      allHref = originalPath
+      // Preserve RID parameter when returning from AI mode
+      allHref = preserveUrlParams(originalPath)
       allShouldNavigate = true
     } else {
-      allHref = "/" 
+      allHref = preserveUrlParams("/")
       allShouldNavigate = true
     }
   } else {
@@ -63,15 +86,22 @@ export function SearchTabs({ currentPage = "all" }: SearchTabsProps) {
   // 对于tab navigation，需要确保维持同一个task context
   const generateTabHref = (tabKey: string, basePath: string, pathname: string) => {
     if (tabKey === "ai-mode") {
-      return `${basePath}/ai-mode?from=${encodeURIComponent(pathname)}`
+      const aiModeUrl = `${basePath}/ai-mode?from=${encodeURIComponent(pathname)}`;
+      return preserveUrlParams(aiModeUrl);
     } else if (tabKey === "all") {
       return allShouldNavigate ? allHref : "#" // 如果不应该导航，返回#
     } else {
       // 其他tabs保持当前的treatment group context
-      const searchParams = new URLSearchParams()
-      searchParams.set('maintain_task', 'true')
+      const params = new URLSearchParams()
+      params.set('maintain_task', 'true')
+      
+      // Preserve RID parameter for iframe navigation
+      if (ridParam) {
+        params.set('RID', ridParam);
+      }
+      
       const baseUrl = `/iframe?url=${encodeURIComponent(`https://www.google.com/search?${tabKey === 'images' ? 'tbm=isch' : tabKey === 'videos' ? 'tbm=vid' : ''}&q=example`)}`
-      return `${baseUrl}&${searchParams.toString()}`
+      return `${baseUrl}&${params.toString()}`
     }
   }
 

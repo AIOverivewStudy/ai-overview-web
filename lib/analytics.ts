@@ -6,8 +6,8 @@ import { saveTaskRecordWithRetry } from "@/lib/database-service";
 import type {
   TaskSession,
   ClickEvent,
-  ShowMoreInteraction,
-  ShowAllInteraction,
+  ShowAllContentClick,
+  ShowAllReferencesClick,
   ComponentName,
   InteractionComponentName,
   PageContext,
@@ -183,7 +183,7 @@ const getCurrentUTCTimestamp = () => {
 };
 
 // Helper function to revive Date objects from JSON
-const reviveDates = (key: string, value: any): any => {
+const reviveDates = (key: string, value: unknown): unknown => {
   if (typeof value === 'string' && (key.includes('time') || key === 'timestamp' || key === 'returnTimestamp')) {
     return new Date(value);
   }
@@ -197,14 +197,69 @@ const getSessionKey = (): string => {
 };
 
 // Helper function to get participant-specific click tracking keys for sessionStorage
-const getClickEventKey = (): string => {
+const getClickEventStackKey = (): string => {
   const { participant_id } = extractUrlParams();
-  return `current_click_event_${participant_id}`;
+  return `click_event_stack_${participant_id}`;
 };
 
-const getClickStartTimeKey = (): string => {
+const getClickStartTimeStackKey = (): string => {
   const { participant_id } = extractUrlParams();
-  return `click_start_time_${participant_id}`;
+  return `click_start_time_stack_${participant_id}`;
+};
+
+// Helper functions for managing click event stack
+const pushClickEventToStack = (clickEvent: ClickEvent, startTime: string): void => {
+  const eventStackKey = getClickEventStackKey();
+  const timeStackKey = getClickStartTimeStackKey();
+  
+  // Get existing stacks or create new ones
+  const eventStack: ClickEvent[] = JSON.parse(sessionStorage.getItem(eventStackKey) || '[]', reviveDates);
+  const timeStack: string[] = JSON.parse(sessionStorage.getItem(timeStackKey) || '[]');
+  
+  // Push new items
+  eventStack.push(clickEvent);
+  timeStack.push(startTime);
+  
+  // Store back to sessionStorage
+  sessionStorage.setItem(eventStackKey, JSON.stringify(eventStack));
+  sessionStorage.setItem(timeStackKey, JSON.stringify(timeStack));
+  
+  console.log("📚 Pushed click event to stack:", { 
+    stackSize: eventStack.length, 
+    pageId: clickEvent.page_id 
+  });
+};
+
+const popClickEventFromStack = (): { clickEvent: ClickEvent; startTime: string } | null => {
+  const eventStackKey = getClickEventStackKey();
+  const timeStackKey = getClickStartTimeStackKey();
+  
+  // Get existing stacks
+  const eventStack: ClickEvent[] = JSON.parse(sessionStorage.getItem(eventStackKey) || '[]', reviveDates);
+  const timeStack: string[] = JSON.parse(sessionStorage.getItem(timeStackKey) || '[]');
+  
+  if (eventStack.length === 0 || timeStack.length === 0) {
+    return null;
+  }
+  
+  // Pop items
+  const clickEvent = eventStack.pop();
+  const startTime = timeStack.pop();
+  
+  if (!clickEvent || !startTime) {
+    return null;
+  }
+  
+  // Store back to sessionStorage
+  sessionStorage.setItem(eventStackKey, JSON.stringify(eventStack));
+  sessionStorage.setItem(timeStackKey, JSON.stringify(timeStack));
+  
+  console.log("📚 Popped click event from stack:", { 
+    remainingStackSize: eventStack.length, 
+    pageId: clickEvent.page_id 
+  });
+  
+  return { clickEvent, startTime };
 };
 
 // Helper function to safely parse session data from sessionStorage
@@ -216,21 +271,21 @@ const parseSessionFromStorage = (sessionRaw: string): TaskSession | null => {
       parsed.task_start_time = new Date(parsed.task_start_time);
     }
     if (parsed.click_sequence) {
-      parsed.click_sequence.forEach((c: any) => {
+      parsed.click_sequence.forEach((c: { click_time?: string | number | Date }) => {
         if (c.click_time && !(c.click_time instanceof Date)) {
           c.click_time = new Date(c.click_time);
         }
       });
     }
-    if (parsed.show_more_interactions) {
-      parsed.show_more_interactions.forEach((s: any) => {
+    if (parsed.show_all_content_clicks) {
+      parsed.show_all_content_clicks.forEach((s: { click_time?: string | number | Date }) => {
         if (s.click_time && !(s.click_time instanceof Date)) {
           s.click_time = new Date(s.click_time);
         }
       });
     }
-    if (parsed.show_all_interactions) {
-      parsed.show_all_interactions.forEach((s: any) => {
+    if (parsed.show_all_references_clicks) {
+      parsed.show_all_references_clicks.forEach((s: { click_time?: string | number | Date }) => {
         if (s.click_time && !(s.click_time instanceof Date)) {
           s.click_time = new Date(s.click_time);
         }
@@ -246,9 +301,9 @@ const parseSessionFromStorage = (sessionRaw: string): TaskSession | null => {
 // 提取公共逻辑：获取下一个点击顺序
 const getNextClickOrder = (session: TaskSession): number => {
   const lastClick = session.click_sequence.at(-1)?.click_order || 0;
-  const lastShowMore = session.show_more_interactions.at(-1)?.click_order || 0;
-  const lastShowAll = session.show_all_interactions.at(-1)?.click_order || 0;
-  return Math.max(lastClick, lastShowMore, lastShowAll) + 1;
+  const lastShowAllContent = session.show_all_content_clicks.at(-1)?.click_order || 0;
+  const lastShowAllReferences = session.show_all_references_clicks.at(-1)?.click_order || 0;
+  return Math.max(lastClick, lastShowAllContent, lastShowAllReferences) + 1;
 };
 
 const createNewSession = async (): Promise<TaskSession> => {
@@ -268,8 +323,8 @@ const createNewSession = async (): Promise<TaskSession> => {
     task_type: taskType,
     task_start_time: getCurrentUTCTimestamp(),
     click_sequence: [],
-    show_more_interactions: [],
-    show_all_interactions: [],
+    show_all_content_clicks: [],
+    show_all_references_clicks: [],
     page_click_statics_1: 0,
     page_click_statics_2: 0,
     page_click_statics_3: 0,
@@ -303,10 +358,10 @@ const getCurrentTaskSession = async (): Promise<TaskSession> => {
   const sessionKey = `current_task_session_${participant_id}`;
   
   // Debug: Log current sessionStorage state for dwell time tracking
-  const clickEventKey = getClickEventKey();
-  const clickStartTimeKey = getClickStartTimeKey();
-  const hasClickEvent = sessionStorage.getItem(clickEventKey) !== null;
-  const hasClickStartTime = sessionStorage.getItem(clickStartTimeKey) !== null;
+  const clickEventStackKey = getClickEventStackKey();
+  const clickStartTimeStackKey = getClickStartTimeStackKey();
+  const hasClickEvent = sessionStorage.getItem(clickEventStackKey) !== null;
+  const hasClickStartTime = sessionStorage.getItem(clickStartTimeStackKey) !== null;
   console.log("🔍 getCurrentTaskSession debug:", {
     url: window.location.href,
     topic,
@@ -348,8 +403,8 @@ const getCurrentTaskSession = async (): Promise<TaskSession> => {
         );
         console.log("🚨 IMPORTANT: About to end session - this might clear dwell time data!");
         console.log("Current sessionStorage state:", {
-          hasClickEvent: sessionStorage.getItem(getClickEventKey()) !== null,
-          hasClickStartTime: sessionStorage.getItem(getClickStartTimeKey()) !== null
+          hasClickEventStack: sessionStorage.getItem(getClickEventStackKey()) !== null,
+          hasClickStartTimeStack: sessionStorage.getItem(getClickStartTimeStackKey()) !== null
         });
         endTaskSession();
         return await createNewSession();
@@ -374,14 +429,15 @@ const getCurrentTaskSession = async (): Promise<TaskSession> => {
 
 // Store link click in sessionStorage
 export const trackLinkClick = async (
-  componentName: ComponentName,
-  linkIndex: number,
+  componentName: ComponentName | "clickPagination_",
+  linkIndex: number | string,
   linkText: string
 ): Promise<string> => {
   console.log("Tracking link click");
 
   const session = await getCurrentTaskSession();
   console.log("session", session);
+  console.log("session.click_sequence length:", session.click_sequence.length);
 
   const clickTime = getCurrentUTCTimestamp();
 
@@ -397,50 +453,54 @@ export const trackLinkClick = async (
     fromAiMode = true;
   }
 
+  if (typeof linkIndex === "number") {
+    linkIndex = `${linkIndex + 1}`;
+  }
+
   // Map component names to page IDs and properties
   if (componentName.startsWith("SearchResults_")) {
-    pageId = `organic_${linkIndex + 1}`;
+    pageId = `organic_${linkIndex}`;
   } else if (componentName.startsWith("SearchResults-Sitelinks_")) {
-    pageId = `sitelink_${linkIndex + 1}`;
+    pageId = `sitelink_${linkIndex}`;
   } else {
     switch (componentName) {
       case "SearchResults":
-        pageId = `organic_${linkIndex + 1}`;
+        pageId = `organic_${linkIndex}`;
         break;
       case "SearchResults-Sitelinks":
-        pageId = `sitelink_${linkIndex + 1}`;
+        pageId = `sitelink_${linkIndex}`;
         break;
       case "AiOverview":
       case "AiOverview-References":
-        pageId = `overview_ref_${linkIndex + 1}`;
+        pageId = `overview_ref_${linkIndex}`;
         fromOverview = true;
         break;
       case "AiMode-Sidebar":
       case "AIMode":
-        pageId = `ai_mode_ref_${linkIndex + 1}`;
+        pageId = `ai_mode_ref_${linkIndex}`;
         fromAiMode = true;
         break;
       case "SearchTabs":
-        pageId = `tab_${linkIndex + 1}`;
+        pageId = `tab_${linkIndex}`;
         break;
       case "PeopleAlsoSearch":
-        pageId = `related_${linkIndex + 1}`;
+        pageId = `related_${linkIndex}`;
         break;
       case "Video":
-        pageId = `video_${linkIndex + 1}`;
+        pageId = `video_${linkIndex}`;
         break;
       case "DiscussionsForums":
       case "DiscussionsAndForums":
-        pageId = `discussion_${linkIndex + 1}`;
+        pageId = `discussion_${linkIndex}`;
         break;
       case "clickPagination_":
-        pageId = `pagination_${linkIndex + 1}`;
+        pageId = `pagination_${linkIndex}`;
         break;
       case "ReferenceLink":
-        pageId = `reference_link_${linkIndex + 1}`;
+        pageId = `reference_link_${linkIndex}`;
         break;
       default:
-        pageId = `other_${linkIndex + 1}`;
+        pageId = `other_${linkIndex}`;
     }
   }
 
@@ -460,11 +520,15 @@ export const trackLinkClick = async (
   // // Add click to session
   // session.click_sequence.push(clickEvent)
 
-  const clickEventKey = getClickEventKey();
-  sessionStorage.setItem(clickEventKey, JSON.stringify(clickEvent));
-  console.log("💾 Click event saved to sessionStorage:", clickEvent.page_id);
+  // Store click event in sessionStorage stack for dwell time tracking
+  const startTimeString = Date.now().toString();
+  pushClickEventToStack(clickEvent, startTimeString);
+  console.log("💾 Click event pushed to stack:", clickEvent.page_id);
   console.log("💾 Full click event:", clickEvent);
 
+  console.log("当前session.click_sequence:", session);
+
+  // Update page click statistics
   if (componentName.includes("SearchResults")) {
     const pageNum = getPageNumber(componentName);
     if (pageNum === 1) {
@@ -478,31 +542,22 @@ export const trackLinkClick = async (
     }
   }
 
-  console.log("当前session.click_sequence:", session);
-
-  const sessionKey = getSessionKey();
-  sessionStorage.setItem(sessionKey, JSON.stringify(session));
-
   console.log(`Tracked click: ${pageId} - "${linkText}", updating database...`);
 
-  // Add click event to session
+  // Add click event to session (without dwell time initially)
   session.click_sequence.push(clickEvent);
+
+  // Update sessionStorage with the new click event
+  const sessionKey = getSessionKey();
+  sessionStorage.setItem(sessionKey, JSON.stringify(session));
 
   // Save updated session to database and wait for completion
   const result = await saveSessionToDatabase(session);
   console.log("保存结果", result);
 
-  // Store click info for dwell time calculation
+  // Click info is already stored in the stack above
   const clickId = `${session.participant_id}_${session.task_topic}_${session.treatment_group}_${clickEvent.click_order}`;
-  const clickStartTimeKey = getClickStartTimeKey();
-  sessionStorage.setItem(clickStartTimeKey, Date.now().toString());
   console.log("⏰ Click timer started at:", new Date().toISOString());
-  console.log("⏰ Stored values in sessionStorage:", {
-    click_event_key: clickEventKey,
-    click_start_time_key: clickStartTimeKey,
-    current_click_event: !!sessionStorage.getItem(clickEventKey),
-    click_start_time: sessionStorage.getItem(clickStartTimeKey)
-  });
 
   return clickId;
 };
@@ -512,15 +567,15 @@ const getPageNumber = (input: string): number | null => {
   return match ? Number(match[1]) : null;
 };
 
-export const trackShowMoreClick = async (
+export const trackShowAllContentClick = async (
   componentName: InteractionComponentName
 ): Promise<void> => {
   const currSession = await getCurrentTaskSession();
   const clickTime = getCurrentUTCTimestamp();
   const nextOrder = getNextClickOrder(currSession);
-  console.log("trackButtonClick", currSession);
+  console.log("trackShowAllContentClick", currSession);
 
-  const showMoreInteraction: ShowMoreInteraction = {
+  const showAllContentClick: ShowAllContentClick = {
     task_id: currSession.task_id,
     click_order: nextOrder,
     click_time: clickTime,
@@ -528,25 +583,25 @@ export const trackShowMoreClick = async (
     page_context: getCurrentPageContext(), // 添加页面上下文
   };
 
-  currSession.show_more_interactions.push(showMoreInteraction);
+  currSession.show_all_content_clicks.push(showAllContentClick);
 
   // Add button interaction to session
   const sessionKey = getSessionKey();
   sessionStorage.setItem(sessionKey, JSON.stringify(currSession));
 
-  console.log("Tracked button click, updating database...");
+  console.log("Tracked show all content click, updating database...");
   saveSessionToDatabase(currSession);
 };
 
-export const trackShowAllClick = async (
+export const trackShowAllReferencesClick = async (
   componentName: InteractionComponentName
 ): Promise<void> => {
   const currSession = await getCurrentTaskSession();
   const clickTime = getCurrentUTCTimestamp();
   const nextOrder = getNextClickOrder(currSession);
-  console.log("trackButtonClick", currSession);
+  console.log("trackShowAllReferencesClick", currSession);
 
-  const showAllInteraction: ShowAllInteraction = {
+  const showAllReferencesClick: ShowAllReferencesClick = {
     task_id: currSession.task_id,
     click_order: nextOrder,
     click_time: clickTime,
@@ -554,13 +609,13 @@ export const trackShowAllClick = async (
     page_context: getCurrentPageContext(), // 添加页面上下文
   };
 
-  currSession.show_all_interactions.push(showAllInteraction);
+  currSession.show_all_references_clicks.push(showAllReferencesClick);
 
   // Add button interaction to session
   const sessionKey = getSessionKey();
   sessionStorage.setItem(sessionKey, JSON.stringify(currSession));
 
-  console.log("Tracked button click, updating database...");
+  console.log("Tracked show all references click, updating database...");
   saveSessionToDatabase(currSession);
 };
 
@@ -582,7 +637,76 @@ export const trackReferenceLinkClick = async (
   }
 };
 
+// Track AI Mode page dwell time when user clicks "All" button
+const trackAiModePageDwellTime = async (): Promise<void> => {
+  try {
+    console.log("🎯 Tracking AI Mode page dwell time");
+    
+    // Get page load time from navigation API or fallback to session storage
+    let pageStartTime: number;
+    
+    if (typeof window !== 'undefined' && window.performance && window.performance.navigation) {
+      // Use navigation start time
+      pageStartTime = window.performance.timing.navigationStart;
+      console.log("📊 Using navigation timing for page start time");
+    } else {
+      // Fallback: try to get from session storage
+      const storedStartTime = sessionStorage.getItem('ai_mode_page_start_time');
+      if (storedStartTime) {
+        pageStartTime = parseInt(storedStartTime);
+        console.log("📊 Using stored page start time from sessionStorage");
+      } else {
+        console.log("⚠️ No page start time available, cannot calculate dwell time");
+        return;
+      }
+    }
+    
+    const dwellTimeMs = Date.now() - pageStartTime;
+    const dwellTimeSec = Math.round((dwellTimeMs / 1000) * 10) / 10;
+    
+    console.log("⏱️ AI Mode page dwell time calculated:", {
+      dwellTimeMs,
+      dwellTimeSec,
+      startTime: new Date(pageStartTime).toLocaleTimeString(),
+      endTime: new Date().toLocaleTimeString()
+    });
+    
+    // Create a synthetic click event for AI Mode page visit
+    const session = await getCurrentTaskSession();
+    const clickTime = new Date(pageStartTime);
+    
+    const aiModeVisitEvent: ClickEvent = {
+      task_id: session.task_id,
+      click_order: getNextClickOrder(session),
+      page_title: "AI Mode Page Visit",
+      page_id: "ai_mode_page",
+      position_in_serp: "ai_mode_visit",
+      click_time: clickTime,
+      dwell_time_sec: dwellTimeSec,
+      from_overview: false,
+      from_ai_mode: true,
+      page_context: "ai_mode",
+    };
+    
+    // Add to session
+    session.click_sequence.push(aiModeVisitEvent);
+    
+    // Update sessionStorage
+    const sessionKey = getSessionKey();
+    sessionStorage.setItem(sessionKey, JSON.stringify(session));
+    
+    console.log("✅ AI Mode page dwell time recorded:", dwellTimeSec + "s");
+    
+    // Save to database
+    await saveSessionToDatabase(session);
+    
+  } catch (error) {
+    console.error("Failed to track AI Mode page dwell time:", error);
+  }
+};
+
 let isTracking = false; // in-memory flag to prevent duplicate processing
+let lastProcessedStack: string | null = null; // track last processed stack item to prevent duplicates
 
 export const trackReturnFromLink = async (caller?: string): Promise<void> => {
   // 获取调用堆栈信息
@@ -598,58 +722,77 @@ export const trackReturnFromLink = async (caller?: string): Promise<void> => {
   console.log("📄 Document visibility:", document.visibilityState);
   console.log("🎯 Window focused:", document.hasFocus());
   
+  // Special handling for AI Mode "All" button clicks
+  if (caller === "ai_mode_all_button") {
+    console.log("🎯 AI Mode All button click detected - tracking page dwell time");
+    await trackAiModePageDwellTime();
+    return;
+  }
+  
+  // Simple deduplication: prevent concurrent processing
   if (isTracking) {
-    console.log("⏳ Already tracking, skipping...");
+    console.log("⏳ Already tracking, skipping to prevent concurrent processing...");
     console.log("🚫 Tracking blocked by:", caller || 'not specified');
     return;
   }
   
-  const clickEventKey = getClickEventKey();
-  const clickEventRaw = sessionStorage.getItem(clickEventKey);
-  console.log("💾 current_click_event in sessionStorage:", clickEventRaw ? "EXISTS" : "NOT FOUND");
+  // Check if we have a pending click event before proceeding
+  const eventStackKey = getClickEventStackKey();
+  const currentStackContent = sessionStorage.getItem(eventStackKey);
   
-  if (!clickEventRaw) {
-    console.log("❌ No click event found, user did not come from a tracked link");
+  if (!currentStackContent || currentStackContent === '[]') {
+    console.log("❌ No click events in stack, nothing to process");
+    console.log("❌ Stack check details:", {
+      caller: caller || 'not specified',
+      eventStackKey,
+      hasStack: currentStackContent !== null,
+      stackContent: currentStackContent,
+      stackIsEmpty: currentStackContent === '[]'
+    });
+    return;
+  }
+  
+  // Prevent processing the same stack state multiple times (but allow different callers)
+  const stackStateKey = `${currentStackContent}_${caller}`;
+  if (lastProcessedStack === stackStateKey) {
+    console.log("🔄 Same stack content and caller already processed, skipping to prevent duplicates");
+    console.log("🔄 Duplicate check:", { stackStateKey, lastProcessedStack });
+    return;
+  }
+  
+  // Pop the most recent click event from the stack
+  const stackItem = popClickEventFromStack();
+  console.log("💾 click event stack pop result:", stackItem ? "SUCCESS" : "EMPTY");
+  
+  if (!stackItem) {
+    console.log("❌ No click event found in stack, user did not come from a tracked link");
     console.log("❌ Check details:", {
       caller: caller || 'not specified',
-      clickEventKey,
       sessionStorageKeys: Object.keys(sessionStorage),
-      hasAnyClickEvent: Object.keys(sessionStorage).some(key => key.includes('click_event'))
+      hasAnyClickEventStack: Object.keys(sessionStorage).some(key => key.includes('click_event_stack'))
     });
     return;
   }
 
   console.log("✅ User returned from a tracked link, processing dwell time...");
   console.log("✅ Dwell time processing triggered by:", caller || 'not specified');
+  
+  // Record that we're processing this specific stack content with this caller
+  lastProcessedStack = stackStateKey;
   isTracking = true; // lock
 
   try {
-    let clickEvent: ClickEvent;
-    try {
-      const parsed = JSON.parse(clickEventRaw, reviveDates);
-      // Ensure click_time is a Date object
-      if (parsed.click_time && !(parsed.click_time instanceof Date)) {
-        parsed.click_time = new Date(parsed.click_time);
-      }
-      clickEvent = parsed;
-    } catch (parseError) {
-      console.error("Failed to parse click event from sessionStorage:", parseError);
-      sessionStorage.removeItem(clickEventKey);
-      sessionStorage.removeItem(getClickStartTimeKey());
-      return;
+    const { clickEvent, startTime } = stackItem;
+    
+    // Ensure click_time is a Date object
+    if (clickEvent.click_time && !(clickEvent.click_time instanceof Date)) {
+      clickEvent.click_time = new Date(clickEvent.click_time);
     }
-
-    const clickStartTimeKey = getClickStartTimeKey();
-    const startTime = sessionStorage.getItem(clickStartTimeKey);
     
     console.log("📊 Click event data:", {
       clickEvent: clickEvent,
       startTime: startTime ? new Date(Number(startTime)).toLocaleTimeString() : "NOT FOUND"
     });
-
-    sessionStorage.removeItem(clickEventKey);
-    sessionStorage.removeItem(clickStartTimeKey);
-    console.log("🗑️ Cleared sessionStorage: click event and start time keys");
 
     if (!clickEvent || !startTime) {
       console.log("❌ Missing click event or start time, aborting...");
@@ -672,24 +815,27 @@ export const trackReturnFromLink = async (caller?: string): Promise<void> => {
 
     const session = await getCurrentTaskSession();
 
-    console.log("🔍 Checking for duplicate click events...");
+    console.log("🔍 Finding and updating existing click event with dwell time...");
     
-    // 使用click_time和page_id组合来检查重复
-    // Convert dates to ISO strings for comparison since JSON parse/stringify converts Date to string
+    // Find the existing click event and update its dwell time
     const clickTimeString = clickEvent.click_time instanceof Date ? clickEvent.click_time.toISOString() : new Date(clickEvent.click_time).toISOString();
-    if (
-      session.click_sequence.some(
-        (c) => {
-          const existingClickTimeString = c.click_time instanceof Date ? c.click_time.toISOString() : new Date(c.click_time).toISOString();
-          return existingClickTimeString === clickTimeString && c.page_id === clickEvent.page_id;
-        }
-      )
-    ) {
-      console.log("🚫 Duplicate click event detected, skipping...");
-      return;
+    const existingClickIndex = session.click_sequence.findIndex(
+      (c) => {
+        const existingClickTimeString = c.click_time instanceof Date ? c.click_time.toISOString() : new Date(c.click_time).toISOString();
+        return existingClickTimeString === clickTimeString && c.page_id === clickEvent.page_id;
+      }
+    );
+
+    if (existingClickIndex !== -1) {
+      // Update the existing click event with dwell time
+      session.click_sequence[existingClickIndex].dwell_time_sec = clickEvent.dwell_time_sec;
+      console.log(`✅ Updated existing click event at index ${existingClickIndex} with dwell time: ${clickEvent.dwell_time_sec}s`);
+    } else {
+      // If not found, add as new click event (fallback)
+      session.click_sequence.push(clickEvent);
+      console.log("⚠️ Existing click event not found, added as new event");
     }
 
-    session.click_sequence.push(clickEvent);
     const sessionKey = getSessionKey();
     sessionStorage.setItem(sessionKey, JSON.stringify(session));
 

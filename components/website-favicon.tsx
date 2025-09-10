@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
 import { getFaviconUrl, extractDomain } from "@/lib/favicon-service"
 
@@ -14,6 +14,11 @@ interface WebsiteFaviconProps {
 export function WebsiteFavicon({ url, size = 24, className = "", fallbackText }: WebsiteFaviconProps) {
   const [imageError, setImageError] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   const faviconUrl = getFaviconUrl(url, size)
   const domain = extractDomain(url)
@@ -55,13 +60,13 @@ export function WebsiteFavicon({ url, size = 24, className = "", fallbackText }:
 
   return (
     <div className={`relative ${className}`} style={{ width: size, height: size }}>
-      {isLoading && <div className="bg-gray-200 rounded-full animate-pulse" style={{ width: size, height: size }} />}
+      {isMounted && isLoading && <div className="bg-gray-200 rounded-full animate-pulse" style={{ width: size, height: size }} />}
       <Image
         src={faviconUrl || "/placeholder.svg"}
         alt={`${domain} favicon`}
         width={size}
         height={size}
-        className={`rounded-full ${isLoading ? "opacity-0" : "opacity-100"} transition-opacity`}
+        className={`rounded-full ${isMounted && isLoading ? "opacity-0" : "opacity-100"} transition-opacity`}
         onError={handleImageError}
         onLoad={handleImageLoad}
         unoptimized // Since we're loading external favicons
