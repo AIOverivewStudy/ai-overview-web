@@ -6,7 +6,7 @@ import { Mic, MoreVertical, Clock, Edit, X, LinkIcon } from "lucide-react"
 import { TrackedLink } from "@/components/tracked-link"
 import { WebsiteFavicon } from "@/components/website-favicon"
 import { getWebsiteName } from "@/lib/favicon-service"
-import { trackShowAllContentClick, trackReferenceLinkClick } from "@/lib/analytics"
+import { trackShowAllContentClick, trackFilterReferencesClick } from "@/lib/analytics"
 import { useParams, notFound } from "next/navigation"
 
 // 动态数据加载函数
@@ -207,10 +207,10 @@ export default function AiModePage() {
     })
   }
 
-  const handleReferenceClick = (referenceIndexes?: number[]) => {
+  const handleReferenceClick = (referenceIndexes?: number[], textBlockIndex?: number, textBlockContent?: string) => {
     if (referenceIndexes) {
-      // Track the reference link click
-      trackReferenceLinkClick(referenceIndexes, "AiMode");
+      // Track the filter references click with detailed context
+      trackFilterReferencesClick(referenceIndexes, "AiMode", textBlockIndex, textBlockContent);
       
       // Show overlay with filtered references instead of modifying the main list
       setFilteredReferenceIndexes(referenceIndexes)
@@ -218,12 +218,12 @@ export default function AiModePage() {
     }
   }
 
-  const renderReferenceLink = (referenceIndexes?: number[]) => {
+  const renderReferenceLink = (referenceIndexes?: number[], textBlockIndex?: number, textBlockContent?: string) => {
     if (!referenceIndexes) return null
 
     return (
       <button
-        onClick={() => handleReferenceClick(referenceIndexes)}
+        onClick={() => handleReferenceClick(referenceIndexes, textBlockIndex, textBlockContent)}
         className="inline-flex items-center text-gray-500 ml-1 hover:text-gray-700"
       >
         <LinkIcon className="h-4 w-4" />
@@ -242,7 +242,7 @@ export default function AiModePage() {
               </h2>
               <p className="text-gray-700 whitespace-pre-wrap">
                 {block.snippet}
-                {renderReferenceLink(block.reference_indexes)}
+                {renderReferenceLink(block.reference_indexes, index, block.snippet || block.title)}
               </p>
             </div>
           )
@@ -251,7 +251,7 @@ export default function AiModePage() {
           return (
             <p key={index} className="text-gray-700 mb-6 text-base leading-relaxed">
               {renderHighlightedText(block.snippet, block.snippet_highlighted_words)}
-              {renderReferenceLink(block.reference_indexes)}
+              {renderReferenceLink(block.reference_indexes, index, block.snippet)}
             </p>
           )
         }
@@ -267,7 +267,7 @@ export default function AiModePage() {
                     <div key={itemIndex} className="mb-6">
                       <h3 className="text-lg font-medium text-gray-900 mb-4">
                         {item.title}
-                        {renderReferenceLink(item.reference_indexes)}
+                        {renderReferenceLink(item.reference_indexes, index, item.title)}
                       </h3>
 
                       <ul className="space-y-3 ml-4">
@@ -305,7 +305,7 @@ export default function AiModePage() {
                               <span className="ml-1">
                                 {value}
                                 {idx === arr.length - 1 && (
-                                  <> {renderReferenceLink(item.reference_indexes)}</>
+                                  <> {renderReferenceLink(item.reference_indexes, index, item.title)}</>
                                 )}
                               </span>
                             </div>
@@ -321,7 +321,7 @@ export default function AiModePage() {
                             <span className="w-2 h-2 bg-gray-900 rounded-full mt-2 mr-4 flex-shrink-0" />
                             <span>
                               {line}
-                              {idx === arr.length - 1 && renderReferenceLink(item.reference_indexes)}
+                              {idx === arr.length - 1 && renderReferenceLink(item.reference_indexes, index, item.title)}
                             </span>
                           </li>
                         ))}

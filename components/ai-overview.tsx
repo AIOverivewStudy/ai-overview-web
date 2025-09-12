@@ -6,7 +6,7 @@ import { MoreVertical, ChevronDown, LinkIcon, X } from "lucide-react"
 import { WebsiteFavicon } from "@/components/website-favicon"
 import { getWebsiteName } from "@/lib/favicon-service"
 import { usePathname } from "next/navigation"
-import { trackShowAllContentClick, trackShowAllReferencesClick, trackReferenceLinkClick } from "@/lib/analytics"
+import { trackShowAllContentClick, trackShowAllReferencesClick, trackFilterReferencesClick } from "@/lib/analytics"
 import { TrackedLink } from "@/components/tracked-link"
 
 interface TextBlock {
@@ -85,10 +85,10 @@ export function AiOverview() {
     }
   }, [pageKey])
 
-  const handleReferenceClick = (referenceIndexes?: number[]) => {
+  const handleReferenceClick = (referenceIndexes?: number[], textBlockIndex?: number, textBlockContent?: string) => {
     if (referenceIndexes) {
-      // Track the reference link click
-      trackReferenceLinkClick(referenceIndexes, "AiOverview");
+      // Track the filter references click with detailed context
+      trackFilterReferencesClick(referenceIndexes, "AiOverview", textBlockIndex, textBlockContent);
       
       // Show overlay with filtered references instead of modifying the main list
       setFilteredReferenceIndexes(referenceIndexes)
@@ -134,12 +134,12 @@ export function AiOverview() {
     trackShowAllContentClick("AiOverview")
   }
 
-  const renderReferenceLink = (referenceIndexes?: number[]) => {
+  const renderReferenceLink = (referenceIndexes?: number[], textBlockIndex?: number, textBlockContent?: string) => {
     if (!referenceIndexes) return null
 
     return (
       <button
-        onClick={() => handleReferenceClick(referenceIndexes)}
+        onClick={() => handleReferenceClick(referenceIndexes, textBlockIndex, textBlockContent)}
         className="inline-flex items-center text-gray-500 ml-1 hover:text-gray-700"
       >
         <LinkIcon className="h-4 w-4" />
@@ -201,7 +201,7 @@ export function AiOverview() {
                   data.text_blocks[0].snippet || "",
                   data.text_blocks[0].snippet_highlighted_words,
                 )}
-                {renderReferenceLink(data.text_blocks[0].reference_indexes)}
+                {renderReferenceLink(data.text_blocks[0].reference_indexes, 0, data.text_blocks[0].snippet)}
               </p>
             )}
 
@@ -214,7 +214,7 @@ export function AiOverview() {
                   <div className="mb-3">
                     <div className="font-bold text-gray-800 text-base mb-2">
                       {data.text_blocks[1].list[0].title}
-                      {renderReferenceLink(data.text_blocks[1].list[0].reference_indexes)}
+                      {renderReferenceLink(data.text_blocks[1].list[0].reference_indexes, 1, data.text_blocks[1].list[0].title)}
                     </div>
                     {data.text_blocks[1].list[0].snippets && (
                       <ul className="list-disc list-inside ml-4 space-y-1">
@@ -252,7 +252,7 @@ export function AiOverview() {
                     <div key={index + 1} className="mb-3">
                       <div className="font-bold text-gray-800 text-base mb-2">
                         {item.title}
-                        {renderReferenceLink(item.reference_indexes)}
+                        {renderReferenceLink(item.reference_indexes, index + 2, item.title)}
                       </div>
                       {item.snippets && (
                         <ul className="list-disc list-inside ml-4 space-y-1">
@@ -277,7 +277,7 @@ export function AiOverview() {
                                     <span className="ml-1 text-sm">{value}</span>
                                   </span>
                                 ))}
-                                {renderReferenceLink(subItem.reference_indexes)}
+                                {renderReferenceLink(subItem.reference_indexes, index + 2, item.title)}
                               </li>
                             ))}
                           </ul>

@@ -607,6 +607,11 @@ export const trackShowAllReferencesClick = async (
     click_time: clickTime,
     component_name: componentName,
     page_context: getCurrentPageContext(), // 添加页面上下文
+    // 为一般的 show all references 点击提供默认值
+    filter_reference_indexes: [], // 默认空数组
+    text_block_index: undefined,
+    text_block_content: undefined,
+    filtered_references_count: undefined,
   };
 
   currSession.show_all_references_clicks.push(showAllReferencesClick);
@@ -619,22 +624,62 @@ export const trackShowAllReferencesClick = async (
   saveSessionToDatabase(currSession);
 };
 
-// Track reference link (LinkIcon) clicks
-export const trackReferenceLinkClick = async (
+// Track filter references button clicks (LinkIcon clicks)
+export const trackFilterReferencesClick = async (
   referenceIndexes: number[], 
-  componentName: string = "AiOverview"
+  componentName: string = "AiOverview",
+  textBlockIndex?: number,
+  textBlockContent?: string
 ): Promise<void> => {
   try {
-    // Track as a link click with reference info
-    await trackLinkClick(
-      "ReferenceLink" as ComponentName, 
-      referenceIndexes[0] || 0, 
-      `Reference links: ${referenceIndexes.join(", ")} from ${componentName}`
-    );
-    console.log(`Tracked reference link click: indexes ${referenceIndexes.join(", ")} from ${componentName}`);
+    const currSession = await getCurrentTaskSession();
+    const clickTime = getCurrentUTCTimestamp();
+    const nextOrder = getNextClickOrder(currSession);
+    
+    const filterReferencesClick: ShowAllReferencesClick = {
+      task_id: currSession.task_id,
+      click_order: nextOrder,
+      click_time: clickTime,
+      component_name: `${componentName}_FilterReferences` as InteractionComponentName,
+      page_context: getCurrentPageContext(),
+      // 添加筛选引用的详细信息
+      filter_reference_indexes: referenceIndexes || [], // 确保总是提供数组
+      text_block_index: textBlockIndex,
+      text_block_content: textBlockContent ? textBlockContent.substring(0, 100) : undefined, // 截取前100字符作为摘要
+      filtered_references_count: referenceIndexes ? referenceIndexes.length : 0,
+    };
+
+    currSession.show_all_references_clicks.push(filterReferencesClick);
+
+    // Update sessionStorage
+    const sessionKey = getSessionKey();
+    sessionStorage.setItem(sessionKey, JSON.stringify(currSession));
+
+    console.log(`Tracked filter references click:`, {
+      indexes: referenceIndexes.join(", "),
+      componentName,
+      textBlockIndex,
+      referencesCount: referenceIndexes.length,
+      textBlockSummary: textBlockContent ? textBlockContent.substring(0, 50) + "..." : "N/A"
+    });
+    
+    // Save to database
+    await saveSessionToDatabase(currSession);
   } catch (error) {
-    console.error("Failed to track reference link click:", error);
+    console.error("Failed to track filter references click:", error);
   }
+};
+
+// Track reference link (LinkIcon) clicks - DEPRECATED: Use trackFilterReferencesClick instead
+export const trackReferenceLinkClick = async (
+  referenceIndexes: number[], 
+  componentName: string = "AiOverview",
+  textBlockIndex?: number,
+  textBlockContent?: string
+): Promise<void> => {
+  // Redirect to the new function for backward compatibility
+  console.warn("trackReferenceLinkClick is deprecated, use trackFilterReferencesClick instead");
+  await trackFilterReferencesClick(referenceIndexes, componentName, textBlockIndex, textBlockContent);
 };
 
 // Track AI Mode page dwell time when user clicks "All" button

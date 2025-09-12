@@ -40,6 +40,8 @@ export type InteractionComponentName =
   | "AiMode"             // AI模式展开
   | "DiscussionsAndForums"  // 讨论论坛展开
   | "VideosSection"      // 视频区域展开
+  | "AiOverview_FilterReferences"  // AI概览筛选引用
+  | "AiMode_FilterReferences"      // AI模式筛选引用
 
 export interface ClickEvent {
   task_id: string
@@ -68,6 +70,11 @@ export interface ShowAllReferencesClick {
   component_name: string
   click_time: Date  // UTC timestamp as Date object
   page_context?: PageContext  // 标记事件发生的页面上下文
+  // 筛选引用相关的详细信息
+  filter_reference_indexes: number[]  // 被筛选的引用索引（必需字段，默认为空数组）
+  text_block_index?: number  // LinkIcon 所在的文本块索引
+  text_block_content?: string  // 文本块的内容摘要
+  filtered_references_count?: number  // 筛选出的引用数量
 }
 
 export interface TaskSession {

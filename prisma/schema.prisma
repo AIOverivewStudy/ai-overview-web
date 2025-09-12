@@ -64,15 +64,21 @@ model ShowAllContentClick {
 }
 
 model ShowAllReferencesClick {
-  id              Int        @id @default(autoincrement())
-  task_record_id  Int
-  task_id         String
-  click_order     Int
-  component_name  String
-  click_time      DateTime   @db.Timestamptz
-  page_context    String?    // "search_results" | "ai_mode"
+  id                        Int        @id @default(autoincrement())
+  task_record_id            Int
+  task_id                   String
+  click_order               Int
+  component_name            String
+  click_time                DateTime   @db.Timestamptz
+  page_context              String?    // "search_results" | "ai_mode"
   
-  taskRecord      TaskRecord @relation(fields: [task_record_id], references: [id], onDelete: Cascade)
+  // 筛选引用相关的详细信息
+  filter_reference_indexes  Int[]      @default([]) // 被筛选的引用索引
+  text_block_index          Int?       // LinkIcon 所在的文本块索引
+  text_block_content        String?    // 文本块的内容摘要
+  filtered_references_count Int?       // 筛选出的引用数量
+  
+  taskRecord                TaskRecord @relation(fields: [task_record_id], references: [id], onDelete: Cascade)
 
   @@map("show_all_references_clicks")
 }
