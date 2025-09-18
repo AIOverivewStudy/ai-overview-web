@@ -8,6 +8,7 @@ import { getWebsiteName } from "@/lib/favicon-service"
 import { usePathname } from "next/navigation"
 import { trackShowAllContentClick, trackShowAllReferencesClick, trackFilterReferencesClick } from "@/lib/analytics"
 import { TrackedLink } from "@/components/tracked-link"
+import { usePostHog } from "posthog-js/react"
 
 interface TextBlock {
   type: string
@@ -52,6 +53,7 @@ export function AiOverview() {
   const pathname = usePathname();
   const pageName = pathname.split("/").slice(1, 2).join("-");
   const aiOverviewData = require(`@/data/${pageName}/ai-overview.json`);
+  const posthog = usePostHog();
   
   // 生成当前页面的唯一标识符（用于sessionStorage key）
   const pageKey = `ai_overview_${pathname.replace(/\//g, '_')}`
@@ -63,6 +65,7 @@ export function AiOverview() {
   const [showFilteredReferencesOverlay, setShowFilteredReferencesOverlay] = useState(false)
   const textContentRef = useRef<HTMLDivElement>(null)
   const [textContentHeight, setTextContentHeight] = useState<number>(0)
+  const aiOverviewRef = useRef<HTMLDivElement>(null)
   const data = aiOverviewData as AIOverviewData
   
 
@@ -84,6 +87,49 @@ export function AiOverview() {
       setShowAllReferences(true)
     }
   }, [pageKey])
+
+  // 🚀 AI Overview 智能追踪 (使用 Intersection Observer)
+  useEffect(() => {
+    if (!posthog || !aiOverviewRef.current) return;
+
+    let maxReadingProgress = 0;
+    let lastReportedProgress = -1;
+    const startTime = Date.now();
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        const visibilityPercentage = Math.round(entry.intersectionRatio * 100);
+        
+        // 记录最大阅读进度 (不回退)
+        if (visibilityPercentage > maxReadingProgress) {
+          maxReadingProgress = visibilityPercentage;
+        }
+
+        // 只在显著变化时上报 (10%阈值)
+        const progressChanged = Math.abs(maxReadingProgress - lastReportedProgress) >= 10;
+
+        if (progressChanged || entry.isIntersecting !== (lastReportedProgress > 0)) {
+          posthog.capture('$ai_overview_reading', {
+            visibility_percentage: visibilityPercentage,
+            max_reading_progress: maxReadingProgress,
+            time_on_element: Date.now() - startTime,
+            is_fully_visible: entry.intersectionRatio === 1,
+            page_url: window.location.href
+          });
+
+          lastReportedProgress = maxReadingProgress;
+        }
+      });
+    }, {
+      threshold: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+    });
+
+    observer.observe(aiOverviewRef.current);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [posthog, aiOverviewRef])
 
   const handleReferenceClick = (referenceIndexes?: number[], textBlockIndex?: number, textBlockContent?: string) => {
     if (referenceIndexes) {
@@ -155,7 +201,7 @@ export function AiOverview() {
   const displayedReferences = getDisplayedReferences()
 
   return (
-    <div className="w-full bg-white border-b border-gray-200 mb-8">
+    <div ref={aiOverviewRef} className="w-full bg-white border-b border-gray-200 mb-8">
       <div className="container mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center">
@@ -252,7 +298,7 @@ export function AiOverview() {
                     <div key={index + 1} className="mb-3">
                       <div className="font-bold text-gray-800 text-base mb-2">
                         {item.title}
-                        {renderReferenceLink(item.reference_indexes, index + 2, item.title)}
+                        {renderReferenceLink(item.reference_indexes, 1, `${item.title} (item ${index + 1})`)}
                       </div>
                       {item.snippets && (
                         <ul className="list-disc list-inside ml-4 space-y-1">
@@ -277,7 +323,7 @@ export function AiOverview() {
                                     <span className="ml-1 text-sm">{value}</span>
                                   </span>
                                 ))}
-                                {renderReferenceLink(subItem.reference_indexes, index + 2, item.title)}
+                                {renderReferenceLink(subItem.reference_indexes, 1, `${item.title} (subitem)`)}
                               </li>
                             ))}
                           </ul>

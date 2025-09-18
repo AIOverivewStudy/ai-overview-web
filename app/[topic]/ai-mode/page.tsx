@@ -1,8 +1,8 @@
 "use client"
 import Image from "next/image"
 import { SearchTabs } from "@/components/search-tabs"
-import { useState, useEffect } from "react"
-import { Mic, MoreVertical, Clock, Edit, X, LinkIcon } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import { Mic, MoreVertical, Clock, Edit, X, LinkIcon, AlertCircle } from "lucide-react"
 import { TrackedLink } from "@/components/tracked-link"
 import { WebsiteFavicon } from "@/components/website-favicon"
 import { getWebsiteName } from "@/lib/favicon-service"
@@ -129,6 +129,8 @@ export default function AiModePage() {
   const [showAllReferences, setShowAllReferences] = useState(false)
   const [filteredReferenceIndexes, setFilteredReferenceIndexes] = useState<number[] | null>(null)
   const [showFilteredReferencesOverlay, setShowFilteredReferencesOverlay] = useState(false)
+  const [showInputPopup, setShowInputPopup] = useState(false)
+  const inputTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Add dwell time tracking specifically for AI Mode page
   useEffect(() => {
@@ -218,6 +220,25 @@ export default function AiModePage() {
     }
   }
 
+  const handleInputInteraction = () => {
+    setShowInputPopup(true)
+    
+    // Auto hide after 3 seconds
+    if (inputTimeoutRef.current) {
+      clearTimeout(inputTimeoutRef.current)
+    }
+    inputTimeoutRef.current = setTimeout(() => {
+      setShowInputPopup(false)
+    }, 3000)
+  }
+
+  const hideInputPopup = () => {
+    setShowInputPopup(false)
+    if (inputTimeoutRef.current) {
+      clearTimeout(inputTimeoutRef.current)
+    }
+  }
+
   const renderReferenceLink = (referenceIndexes?: number[], textBlockIndex?: number, textBlockContent?: string) => {
     if (!referenceIndexes) return null
 
@@ -267,7 +288,7 @@ export default function AiModePage() {
                     <div key={itemIndex} className="mb-6">
                       <h3 className="text-lg font-medium text-gray-900 mb-4">
                         {item.title}
-                        {renderReferenceLink(item.reference_indexes, index, item.title)}
+                        {renderReferenceLink(item.reference_indexes, index, `text_block_${index}: ${item.title}`)}
                       </h3>
 
                       <ul className="space-y-3 ml-4">
@@ -305,7 +326,7 @@ export default function AiModePage() {
                               <span className="ml-1">
                                 {value}
                                 {idx === arr.length - 1 && (
-                                  <> {renderReferenceLink(item.reference_indexes, index, item.title)}</>
+                                  <> {renderReferenceLink(item.reference_indexes, index, `text_block_${index}: ${item.title}`)}</>
                                 )}
                               </span>
                             </div>
@@ -321,7 +342,7 @@ export default function AiModePage() {
                             <span className="w-2 h-2 bg-gray-900 rounded-full mt-2 mr-4 flex-shrink-0" />
                             <span>
                               {line}
-                              {idx === arr.length - 1 && renderReferenceLink(item.reference_indexes, index, item.title)}
+                              {idx === arr.length - 1 && renderReferenceLink(item.reference_indexes, index, `text_block_${index}: ${item.title}`)}
                             </span>
                           </li>
                         ))}
@@ -455,11 +476,37 @@ export default function AiModePage() {
                   type="text"
                   readOnly
                   placeholder="Ask anything"
-                  className="w-full px-6 py-4 text-lg border border-gray-300 rounded-full focus:outline-none focus:border-blue-500 focus:shadow-lg pr-16 bg-gray-50"
+                  className="w-full px-6 py-4 text-lg border border-gray-300 rounded-full focus:outline-none focus:border-blue-500 focus:shadow-lg pr-16 bg-gray-50 cursor-not-allowed"
+                  onClick={handleInputInteraction}
+                  onFocus={handleInputInteraction}
+                  onKeyDown={handleInputInteraction}
                 />
-                <button className="absolute right-4 top-1/2 transform -translate-y-1/2 p-2 hover:bg-gray-200 rounded-full">
+                <button 
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 p-2 hover:bg-gray-200 rounded-full"
+                  onClick={handleInputInteraction}
+                >
                   <Mic className="h-6 w-6 text-gray-600" />
                 </button>
+
+                {/* Popup notification */}
+                {showInputPopup && (
+                  <div className="absolute bottom-full left-6 mb-2 z-50">
+                    <div className="bg-gray-800 text-white px-4 py-3 rounded-lg shadow-lg flex items-center space-x-2 min-w-80">
+                      <AlertCircle className="h-5 w-5 text-yellow-400 flex-shrink-0" />
+                      <span className="text-sm">
+                        This is a research interface. AI chat functionality is not available. Please explore the AI-generated content above.
+                      </span>
+                      <button 
+                        onClick={hideInputPopup}
+                        className="ml-2 text-gray-300 hover:text-white"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                    {/* Arrow pointing down */}
+                    <div className="absolute -bottom-2 left-6 w-4 h-4 bg-gray-800 transform rotate-45"></div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
