@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import { trackLinkClick } from "@/lib/analytics"
 import type { ComponentName } from "@/types/api"
 
@@ -24,6 +25,8 @@ type TrackedLinkProps =
     };
 
 export function TrackedLink ({ href, componentName, linkIndex, className, children }: TrackedLinkProps) {
+  const searchParams = useSearchParams()
+  
   const handleClick = async () => {
     // Extract text content for tracking
     let linkText = ""
@@ -51,11 +54,22 @@ export function TrackedLink ({ href, componentName, linkIndex, className, childr
     }
   }
 
+  // Helper function to preserve RID parameter
+  const preserveRidParam = (baseUrl: string): string => {
+    const rid = searchParams.get('RID')
+    if (!rid) return baseUrl
+    
+    const separator = baseUrl.includes('?') ? '&' : '?'
+    return `${baseUrl}${separator}RID=${encodeURIComponent(rid)}`
+  }
+
   // 对于所有链接（包括外部链接、内部路由和静态文件），都使用iframe包装
-  // 对于外部链接，使用查询参数传递URL
-  const iframePath = href.startsWith('http://') || href.startsWith('https://') 
+  // 对于外部链接，使用查询参数传递URL，并保留RID参数
+  const basePath = href.startsWith('http://') || href.startsWith('https://') 
     ? `/iframe?url=${encodeURIComponent(href)}` 
     : `/iframe${href}`
+  
+  const iframePath = preserveRidParam(basePath)
     
   return (
     <Link href={iframePath} className={className} onClick={handleClick}>

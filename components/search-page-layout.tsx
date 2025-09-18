@@ -1,5 +1,5 @@
 "use client"
-import { ReactNode, useEffect } from "react"
+import { ReactNode, useEffect, Suspense } from "react"
 import HeadSection from "@/components/head-section"
 import { SearchTabs } from "@/components/search-tabs"
 import { SearchTabs as SearchTabsNoAi } from "@/components/search-tabs-no-ai-mode"
@@ -28,7 +28,9 @@ export function SearchPageLayout({
       <header className="sticky top-0 z-10 bg-white border-b border-gray-200">
         <HeadSection />
         <div className="px-48">
-          <SearchTabsComponent />
+          <Suspense fallback={<div className="flex items-center space-x-6 overflow-x-auto scrollbar-hide h-12" />}>
+            <SearchTabsComponent />
+          </Suspense>
         </div>
       </header>
 
