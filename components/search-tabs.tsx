@@ -151,6 +151,18 @@ export function SearchTabs({ currentPage = "all" }: SearchTabsProps) {
       {tabs.map((tab, index) => {
         // 特殊处理All标签
         if (tab.key === "all") {
+          // 如果当前就在All页面，禁用点击
+          if (currentPage === "all") {
+            return (
+              <span
+                key={tab.name}
+                className="py-3 px-1 text-sm border-b-2 whitespace-nowrap text-blue-600 border-blue-600 cursor-default"
+              >
+                {tab.name}
+              </span>
+            )
+          }
+          
           // AI Mode 页面的 All 按钮 - 需要特殊处理 dwell time
           if (pathname.endsWith("/ai-mode")) {
             return (
@@ -188,6 +200,18 @@ export function SearchTabs({ currentPage = "all" }: SearchTabsProps) {
         
         // AI Mode 按钮也需要特殊处理 - 使用直接导航而非 iframe
         if (tab.key === "ai-mode") {
+          // 如果当前就在AI Mode页面，禁用点击
+          if (currentPage === "ai-mode") {
+            return (
+              <span
+                key={tab.name}
+                className="py-3 px-1 text-sm border-b-2 whitespace-nowrap text-blue-600 border-blue-600 cursor-default"
+              >
+                {tab.name}
+              </span>
+            )
+          }
+          
           const handleAiModeClick = async (e: React.MouseEvent) => {
             e.preventDefault()
             
