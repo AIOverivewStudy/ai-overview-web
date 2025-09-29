@@ -609,7 +609,7 @@ export const trackShowAllReferencesClick = async (
     page_context: getCurrentPageContext(), // 添加页面上下文
     // 为一般的 show all references 点击提供默认值
     filter_reference_indexes: [], // 默认空数组
-    text_block_index: undefined,
+    global_reference_index: undefined,
     text_block_content: undefined,
     filtered_references_count: undefined,
   };
@@ -628,7 +628,7 @@ export const trackShowAllReferencesClick = async (
 export const trackFilterReferencesClick = async (
   referenceIndexes: number[], 
   componentName: string = "AiOverview",
-  textBlockIndex?: number,
+  globalReferenceIndex?: number,
   textBlockContent?: string
 ): Promise<void> => {
   try {
@@ -644,7 +644,7 @@ export const trackFilterReferencesClick = async (
       page_context: getCurrentPageContext(),
       // 添加筛选引用的详细信息
       filter_reference_indexes: referenceIndexes || [], // 确保总是提供数组
-      text_block_index: textBlockIndex,
+      global_reference_index: globalReferenceIndex,
       text_block_content: textBlockContent ? textBlockContent.substring(0, 100) : undefined, // 截取前100字符作为摘要
       filtered_references_count: referenceIndexes ? referenceIndexes.length : 0,
     };
@@ -658,7 +658,7 @@ export const trackFilterReferencesClick = async (
     console.log(`Tracked filter references click:`, {
       indexes: referenceIndexes.join(", "),
       componentName,
-      textBlockIndex,
+      globalReferenceIndex,
       referencesCount: referenceIndexes.length,
       textBlockSummary: textBlockContent ? textBlockContent.substring(0, 50) + "..." : "N/A"
     });
@@ -674,12 +674,12 @@ export const trackFilterReferencesClick = async (
 export const trackReferenceLinkClick = async (
   referenceIndexes: number[], 
   componentName: string = "AiOverview",
-  textBlockIndex?: number,
+  globalReferenceIndex?: number,
   textBlockContent?: string
 ): Promise<void> => {
   // Redirect to the new function for backward compatibility
   console.warn("trackReferenceLinkClick is deprecated, use trackFilterReferencesClick instead");
-  await trackFilterReferencesClick(referenceIndexes, componentName, textBlockIndex, textBlockContent);
+  await trackFilterReferencesClick(referenceIndexes, componentName, globalReferenceIndex, textBlockContent);
 };
 
 // Track AI Mode page dwell time when user clicks "All" button

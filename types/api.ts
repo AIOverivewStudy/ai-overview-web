@@ -72,7 +72,7 @@ export interface ShowAllReferencesClick {
   page_context?: PageContext  // 标记事件发生的页面上下文
   // 筛选引用相关的详细信息
   filter_reference_indexes: number[]  // 被筛选的引用索引（必需字段，默认为空数组）
-  text_block_index?: number  // LinkIcon 所在的文本块索引
+  global_reference_index?: number  // LinkIcon 的全局引用索引（从页面顶部开始计数）
   text_block_content?: string  // 文本块的内容摘要
   filtered_references_count?: number  // 筛选出的引用数量
 }

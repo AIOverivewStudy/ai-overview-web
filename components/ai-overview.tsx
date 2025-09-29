@@ -66,8 +66,13 @@ export function AiOverview() {
   const textContentRef = useRef<HTMLDivElement>(null)
   const [textContentHeight, setTextContentHeight] = useState<number>(0)
   const aiOverviewRef = useRef<HTMLDivElement>(null)
+  const globalReferenceIndexRef = useRef<number>(1) // 全局引用索引计数器，从1开始
   const data = aiOverviewData as AIOverviewData
   
+  // 重置全局引用索引计数器
+  useEffect(() => {
+    globalReferenceIndexRef.current = 1
+  }, [pathname]) // 当路径变化时重置索引
 
   useEffect(() => {
     if (textContentRef.current) {
@@ -131,10 +136,10 @@ export function AiOverview() {
     };
   }, [posthog, aiOverviewRef])
 
-  const handleReferenceClick = (referenceIndexes?: number[], textBlockIndex?: number, textBlockContent?: string) => {
+  const handleReferenceClick = (referenceIndexes?: number[], globalReferenceIndex?: number, textBlockContent?: string) => {
     if (referenceIndexes) {
       // Track the filter references click with detailed context
-      trackFilterReferencesClick(referenceIndexes, "AiOverview", textBlockIndex, textBlockContent);
+      trackFilterReferencesClick(referenceIndexes, "AiOverview", globalReferenceIndex, textBlockContent);
       
       // Show overlay with filtered references instead of modifying the main list
       setFilteredReferenceIndexes(referenceIndexes)
@@ -180,14 +185,20 @@ export function AiOverview() {
     trackShowAllContentClick("AiOverview")
   }
 
-  const renderReferenceLink = (referenceIndexes?: number[], textBlockIndex?: number, textBlockContent?: string) => {
+  const renderReferenceLink = (referenceIndexes?: number[], textBlockContent?: string) => {
     if (!referenceIndexes) return null
+
+    // 获取当前全局索引并递增
+    const currentIndex = globalReferenceIndexRef.current
+    globalReferenceIndexRef.current += 1
 
     return (
       <button
-        onClick={() => handleReferenceClick(referenceIndexes, textBlockIndex, textBlockContent)}
+        onClick={() => handleReferenceClick(referenceIndexes, currentIndex, textBlockContent)}
         className="inline-flex items-center text-gray-500 ml-1 hover:text-gray-700"
+        title={`Reference ${currentIndex}`}
       >
+        <sup className="text-xs text-blue-600 font-medium mr-1">[{currentIndex}]</sup>
         <LinkIcon className="h-4 w-4" />
       </button>
     )
@@ -247,7 +258,7 @@ export function AiOverview() {
                   data.text_blocks[0].snippet || "",
                   data.text_blocks[0].snippet_highlighted_words,
                 )}
-                {renderReferenceLink(data.text_blocks[0].reference_indexes, 0, data.text_blocks[0].snippet)}
+                {renderReferenceLink(data.text_blocks[0].reference_indexes, data.text_blocks[0].snippet)}
               </p>
             )}
 
@@ -260,7 +271,7 @@ export function AiOverview() {
                   <div className="mb-3">
                     <div className="font-bold text-gray-800 text-base mb-2">
                       {data.text_blocks[1].list[0].title}
-                      {renderReferenceLink(data.text_blocks[1].list[0].reference_indexes, 1, data.text_blocks[1].list[0].title)}
+                      {renderReferenceLink(data.text_blocks[1].list[0].reference_indexes, data.text_blocks[1].list[0].title)}
                     </div>
                     {data.text_blocks[1].list[0].snippets && (
                       <ul className="list-disc list-inside ml-4 space-y-1">
@@ -298,7 +309,7 @@ export function AiOverview() {
                     <div key={index + 1} className="mb-3">
                       <div className="font-bold text-gray-800 text-base mb-2">
                         {item.title}
-                        {renderReferenceLink(item.reference_indexes, 1, `${item.title} (item ${index + 1})`)}
+                        {renderReferenceLink(item.reference_indexes, item.title)}
                       </div>
                       {item.snippets && (
                         <ul className="list-disc list-inside ml-4 space-y-1">
@@ -323,7 +334,7 @@ export function AiOverview() {
                                     <span className="ml-1 text-sm">{value}</span>
                                   </span>
                                 ))}
-                                {renderReferenceLink(subItem.reference_indexes, 1, `${item.title} (subitem)`)}
+                                {renderReferenceLink(subItem.reference_indexes, item.title)}
                               </li>
                             ))}
                           </ul>
