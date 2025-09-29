@@ -66,13 +66,51 @@ export function AiOverview() {
   const textContentRef = useRef<HTMLDivElement>(null)
   const [textContentHeight, setTextContentHeight] = useState<number>(0)
   const aiOverviewRef = useRef<HTMLDivElement>(null)
-  const globalReferenceIndexRef = useRef<number>(1) // 全局引用索引计数器，从1开始
   const data = aiOverviewData as AIOverviewData
   
-  // 重置全局引用索引计数器
-  useEffect(() => {
-    globalReferenceIndexRef.current = 1
-  }, [pathname]) // 当路径变化时重置索引
+  // 计算所有引用链接的全局索引映射
+  const getReferenceIndexMap = () => {
+    const indexMap = new Map<string, number>()
+    let globalIndex = 1
+    
+    // 遍历所有text_blocks，按出现顺序分配索引
+    data.text_blocks.forEach((block) => {
+      if (block.reference_indexes) {
+        const key = block.reference_indexes.sort().join(',')
+        if (!indexMap.has(key)) {
+          indexMap.set(key, globalIndex++)
+        }
+      }
+      
+      // 处理列表项
+      if (block.list) {
+        block.list.forEach((item) => {
+          if (item.reference_indexes) {
+            const key = item.reference_indexes.sort().join(',')
+            if (!indexMap.has(key)) {
+              indexMap.set(key, globalIndex++)
+            }
+          }
+          
+          // 处理嵌套列表
+          if (item.list) {
+            item.list.forEach((subItem) => {
+              if (subItem.reference_indexes) {
+                const key = subItem.reference_indexes.sort().join(',')
+                if (!indexMap.has(key)) {
+                  indexMap.set(key, globalIndex++)
+                }
+              }
+            })
+          }
+        })
+      }
+    })
+    
+    return indexMap
+  }
+  
+  const referenceIndexMap = getReferenceIndexMap()
 
   useEffect(() => {
     if (textContentRef.current) {
@@ -188,17 +226,16 @@ export function AiOverview() {
   const renderReferenceLink = (referenceIndexes?: number[], textBlockContent?: string) => {
     if (!referenceIndexes) return null
 
-    // 获取当前全局索引并递增
-    const currentIndex = globalReferenceIndexRef.current
-    globalReferenceIndexRef.current += 1
+    // 根据reference_indexes获取对应的全局索引
+    const key = referenceIndexes.sort().join(',')
+    const globalIndex = referenceIndexMap.get(key) || 1
 
     return (
       <button
-        onClick={() => handleReferenceClick(referenceIndexes, currentIndex, textBlockContent)}
+        onClick={() => handleReferenceClick(referenceIndexes, globalIndex, textBlockContent)}
         className="inline-flex items-center text-gray-500 ml-1 hover:text-gray-700"
-        title={`Reference ${currentIndex}`}
+        title={`Reference ${globalIndex}`}
       >
-        <sup className="text-xs text-blue-600 font-medium mr-1">[{currentIndex}]</sup>
         <LinkIcon className="h-4 w-4" />
       </button>
     )
