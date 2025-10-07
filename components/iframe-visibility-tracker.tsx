@@ -23,24 +23,26 @@ export function IframeVisibilityTracker() {
     let lastReportedState = ''
     const startTime = Date.now()
 
-    // 创建一个顶部哨兵元素用于检测
+    // 创建顶部哨兵元素 - 固定在视口顶部
     const sentinelTop = document.createElement('div')
-    sentinelTop.style.position = 'absolute'
+    sentinelTop.style.position = 'fixed'  // fixed 固定在视口
     sentinelTop.style.top = '0'
     sentinelTop.style.left = '0'
-    sentinelTop.style.width = '1px'
+    sentinelTop.style.width = '100%'
     sentinelTop.style.height = '1px'
     sentinelTop.style.pointerEvents = 'none'
+    sentinelTop.style.zIndex = '9999'
     document.body.prepend(sentinelTop)
 
-    // 创建一个底部哨兵元素
+    // 创建底部哨兵元素 - 固定在视口底部
     const sentinelBottom = document.createElement('div')
-    sentinelBottom.style.position = 'absolute'
+    sentinelBottom.style.position = 'fixed'  // fixed 固定在视口
     sentinelBottom.style.bottom = '0'
     sentinelBottom.style.left = '0'
-    sentinelBottom.style.width = '1px'
+    sentinelBottom.style.width = '100%'
     sentinelBottom.style.height = '1px'
     sentinelBottom.style.pointerEvents = 'none'
+    sentinelBottom.style.zIndex = '9999'
     document.body.append(sentinelBottom)
 
     let topVisible = false
