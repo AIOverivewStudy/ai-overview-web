@@ -32,7 +32,7 @@ export function IframeVisibilityTracker() {
 
     // 创建一个覆盖整个页面高度的哨兵元素
     const sentinel = document.createElement('div')
-    sentinel.style.position = 'absolute'
+    sentinel.style.position = 'fixed'
     sentinel.style.top = '0'
     sentinel.style.left = '0'
     sentinel.style.width = '100%'
