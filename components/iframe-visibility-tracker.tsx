@@ -4,8 +4,15 @@ import { useEffect } from 'react'
 import { usePostHog } from 'posthog-js/react'
 
 /**
- * 追踪 iframe 在父页面视口中的可见性
- * 用于检测用户在 Qualtrics 问卷上滚动时，我们的内容占据视口的比例
+ * 追踪页面内容在视口中的可见性
+ * 
+ * ⚠️ 重要说明：
+ * 由于浏览器的跨域安全限制，iframe 内的 JavaScript 无法直接检测 iframe 本身在父页面中的位置。
+ * 
+ * 这个组件采用的是"近似方案"：
+ * - 检测页面顶部元素在当前窗口视口中的可见性
+ * - 如果页面顶部可见 → 说明 iframe 很可能在父页面视口的可见区域
+ * - 如果页面顶部不可见 → 说明用户可能滚动到了页面下方，或 iframe 被滚出父页面视口
  */
 export function IframeVisibilityTracker() {
   const posthog = usePostHog()
@@ -13,63 +20,100 @@ export function IframeVisibilityTracker() {
   useEffect(() => {
     if (typeof window === 'undefined') return
 
-    let lastReportedRatio = -1
+    let lastReportedState = ''
     const startTime = Date.now()
 
-    // 创建 Intersection Observer 监听 iframe 在父页面视口中的可见性
-    const observer = new IntersectionObserver(
+    // 创建一个顶部哨兵元素用于检测
+    const sentinelTop = document.createElement('div')
+    sentinelTop.style.position = 'absolute'
+    sentinelTop.style.top = '0'
+    sentinelTop.style.left = '0'
+    sentinelTop.style.width = '1px'
+    sentinelTop.style.height = '1px'
+    sentinelTop.style.pointerEvents = 'none'
+    document.body.prepend(sentinelTop)
+
+    // 创建一个底部哨兵元素
+    const sentinelBottom = document.createElement('div')
+    sentinelBottom.style.position = 'absolute'
+    sentinelBottom.style.bottom = '0'
+    sentinelBottom.style.left = '0'
+    sentinelBottom.style.width = '1px'
+    sentinelBottom.style.height = '1px'
+    sentinelBottom.style.pointerEvents = 'none'
+    document.body.append(sentinelBottom)
+
+    let topVisible = false
+    let bottomVisible = false
+
+    const observerTop = new IntersectionObserver(
       (entries) => {
-        entries.forEach((entry) => {
-          const visibilityRatio = Math.round(entry.intersectionRatio * 100)
-          
-          // 只在可见比例变化超过 5% 时上报，避免过于频繁
-          const ratioChanged = Math.abs(visibilityRatio - lastReportedRatio) >= 5
-
-          if (ratioChanged) {
-            posthog?.capture('iframe_visibility_change', {
-              visibility_percentage: visibilityRatio,
-              is_fully_visible: entry.intersectionRatio === 1,
-              is_partially_visible: entry.isIntersecting && entry.intersectionRatio < 1,
-              is_hidden: !entry.isIntersecting,
-              time_since_load: Date.now() - startTime,
-              viewport_position: {
-                top: entry.boundingClientRect.top,
-                bottom: entry.boundingClientRect.bottom,
-                height: entry.boundingClientRect.height
-              },
-              page_url: window.location.href
-            })
-
-            lastReportedRatio = visibilityRatio
-            
-            // 调试日志
-            console.log(`📊 Iframe 可见性: ${visibilityRatio}%`, {
-              完全可见: entry.intersectionRatio === 1,
-              部分可见: entry.isIntersecting && entry.intersectionRatio < 1,
-              完全隐藏: !entry.isIntersecting
-            })
-          }
-        })
+        topVisible = entries[0].isIntersecting
+        reportState()
       },
-      {
-        // 设置多个阈值，以便捕获细粒度的可见性变化
-        threshold: [0, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 1.0],
-        // root: null 表示相对于浏览器视口（这会检测iframe在父页面中的位置）
-        root: null,
-        rootMargin: '0px'
-      }
+      { threshold: 0 }
     )
 
-    // 观察整个文档的根元素
-    if (document.documentElement) {
-      observer.observe(document.documentElement)
+    const observerBottom = new IntersectionObserver(
+      (entries) => {
+        bottomVisible = entries[0].isIntersecting
+        reportState()
+      },
+      { threshold: 0 }
+    )
+
+    const reportState = () => {
+      let state = ''
+      let visibilityPercentage = 0
+      
+      if (topVisible && bottomVisible) {
+        state = 'fully_visible'
+        visibilityPercentage = 100
+      } else if (topVisible && !bottomVisible) {
+        state = 'top_visible_bottom_cut'
+        visibilityPercentage = 70 // 估算
+      } else if (!topVisible && bottomVisible) {
+        state = 'top_cut_bottom_visible'
+        visibilityPercentage = 70 // 估算
+      } else {
+        state = 'not_visible'
+        visibilityPercentage = 0
+      }
+
+      if (state !== lastReportedState) {
+        posthog?.capture('iframe_content_visibility', {
+          visibility_state: state,
+          visibility_percentage: visibilityPercentage,
+          top_visible: topVisible,
+          bottom_visible: bottomVisible,
+          time_since_load: Date.now() - startTime,
+          page_url: window.location.href,
+          // 额外信息：窗口尺寸
+          window_height: window.innerHeight,
+          document_height: document.documentElement.scrollHeight
+        })
+
+        lastReportedState = state
+        
+        console.log(`📊 页面可见性状态: ${state}`, {
+          '顶部可见': topVisible,
+          '底部可见': bottomVisible,
+          '估算可见度': `${visibilityPercentage}%`
+        })
+      }
     }
 
+    observerTop.observe(sentinelTop)
+    observerBottom.observe(sentinelBottom)
+
     return () => {
-      observer.disconnect()
+      observerTop.disconnect()
+      observerBottom.disconnect()
+      sentinelTop.remove()
+      sentinelBottom.remove()
     }
   }, [posthog])
 
-  return null // 这是一个纯追踪组件，不渲染任何UI
+  return null
 }
 
