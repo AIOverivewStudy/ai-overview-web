@@ -157,10 +157,32 @@ export function AiOverview() {
             max_reading_progress: maxReadingProgress,
             time_on_element: Date.now() - startTime,
             is_fully_visible: entry.intersectionRatio === 1,
-            page_url: window.location.href
+            page_url: window.location.href,
+            viewport_info: {
+              bounding_rect_top: entry.boundingClientRect.top,
+              bounding_rect_bottom: entry.boundingClientRect.bottom,
+              bounding_rect_height: entry.boundingClientRect.height,
+              intersection_rect_height: entry.intersectionRect.height
+            }
           });
 
           lastReportedProgress = maxReadingProgress;
+          
+          // 调试日志
+          console.log(`📖 AI Overview 阅读进度: ${visibilityPercentage}% (最大: ${maxReadingProgress}%)`, {
+            '当前可见': visibilityPercentage + '%',
+            '最大进度': maxReadingProgress + '%',
+            '完全可见': entry.intersectionRatio === 1,
+            '部分可见': entry.isIntersecting && entry.intersectionRatio < 1,
+            '完全隐藏': !entry.isIntersecting,
+            '阅读时长': Math.round((Date.now() - startTime) / 1000) + '秒',
+            '元素位置': {
+              '顶部': Math.round(entry.boundingClientRect.top) + 'px',
+              '底部': Math.round(entry.boundingClientRect.bottom) + 'px',
+              '高度': Math.round(entry.boundingClientRect.height) + 'px',
+              '可见高度': Math.round(entry.intersectionRect.height) + 'px'
+            }
+          });
         }
       });
     }, {
