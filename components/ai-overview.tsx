@@ -135,7 +135,6 @@ export function AiOverview() {
   useEffect(() => {
     if (!posthog || !aiOverviewRef.current) return;
 
-    let maxReadingProgress = 0;
     let lastReportedProgress = -1;
     const startTime = Date.now();
 
@@ -143,18 +142,9 @@ export function AiOverview() {
       entries.forEach((entry) => {
         const visibilityPercentage = Math.round(entry.intersectionRatio * 100);
         
-        // 记录最大阅读进度 (不回退)
-        if (visibilityPercentage > maxReadingProgress) {
-          maxReadingProgress = visibilityPercentage;
-        }
-
-        // 只在显著变化时上报 (10%阈值)
-        const progressChanged = Math.abs(maxReadingProgress - lastReportedProgress) >= 10;
-
-        if (progressChanged || entry.isIntersecting !== (lastReportedProgress > 0)) {
+        if (entry.isIntersecting !== (lastReportedProgress > 0)) {
           posthog.capture('$ai_overview_reading', {
             visibility_percentage: visibilityPercentage,
-            max_reading_progress: maxReadingProgress,
             time_on_element: Date.now() - startTime,
             is_fully_visible: entry.intersectionRatio === 1,
             page_url: window.location.href,
@@ -166,12 +156,10 @@ export function AiOverview() {
             }
           });
 
-          lastReportedProgress = maxReadingProgress;
           
           // 调试日志
-          console.log(`📖 AI Overview 阅读进度: ${visibilityPercentage}% (最大: ${maxReadingProgress}%)`, {
+          console.log(`📖 AI Overview 阅读进度: ${visibilityPercentage}%`, {
             '当前可见': visibilityPercentage + '%',
-            '最大进度': maxReadingProgress + '%',
             '完全可见': entry.intersectionRatio === 1,
             '部分可见': entry.isIntersecting && entry.intersectionRatio < 1,
             '完全隐藏': !entry.isIntersecting,
