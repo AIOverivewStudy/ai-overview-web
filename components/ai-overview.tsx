@@ -140,41 +140,64 @@ export function AiOverview() {
 
     const observer = new IntersectionObserver((entries) => {
       entries.forEach((entry) => {
-        const visibilityPercentage = Math.round(entry.intersectionRatio * 100);
+        const elementHeight = entry.boundingClientRect.height;
+        const viewportHeight = window.innerHeight;
+        const visibleHeight = entry.intersectionRect.height;
         
-        if (entry.isIntersecting !== (lastReportedProgress > 0)) {
+        // 计算基于最小高度的可见比例
+        // 如果元素高度 > 视口高度，用视口高度作为基准
+        // 否则用元素高度作为基准
+        const baseHeight = Math.min(elementHeight, viewportHeight);
+        const adjustedRatio = baseHeight > 0 ? visibleHeight / baseHeight : 0;
+        const adjustedPercentage = Math.round(adjustedRatio * 100);
+        
+        // 原始的 intersectionRatio (元素可见部分 / 元素总高度)
+        const rawPercentage = Math.round(entry.intersectionRatio * 100);
+        
+        // 只在可见性状态变化超过 5% 时上报
+        const progressChanged = Math.abs(adjustedPercentage - lastReportedProgress) >= 5;
+        
+        if (progressChanged) {
           posthog.capture('$ai_overview_reading', {
-            visibility_percentage: visibilityPercentage,
+            visibility_percentage: adjustedPercentage,
+            raw_visibility_percentage: rawPercentage,
             time_on_element: Date.now() - startTime,
-            is_fully_visible: entry.intersectionRatio === 1,
+            is_fully_visible: adjustedRatio >= 0.99,
             page_url: window.location.href,
             viewport_info: {
-              bounding_rect_top: entry.boundingClientRect.top,
-              bounding_rect_bottom: entry.boundingClientRect.bottom,
-              bounding_rect_height: entry.boundingClientRect.height,
-              intersection_rect_height: entry.intersectionRect.height
+              element_height: Math.round(elementHeight),
+              viewport_height: viewportHeight,
+              visible_height: Math.round(visibleHeight),
+              base_height_used: Math.round(baseHeight),
+              bounding_rect_top: Math.round(entry.boundingClientRect.top),
+              bounding_rect_bottom: Math.round(entry.boundingClientRect.bottom)
             }
           });
 
+          lastReportedProgress = adjustedPercentage;
           
           // 调试日志
-          console.log(`📖 AI Overview 阅读进度: ${visibilityPercentage}%`, {
-            '当前可见': visibilityPercentage + '%',
-            '完全可见': entry.intersectionRatio === 1,
-            '部分可见': entry.isIntersecting && entry.intersectionRatio < 1,
+          console.log(`📖 AI Overview 可见性: ${adjustedPercentage}%`, {
+            '调整后可见度': adjustedPercentage + '%',
+            '原始可见度': rawPercentage + '%',
+            '完全可见': adjustedRatio >= 0.99,
+            '部分可见': entry.isIntersecting && adjustedRatio < 0.99,
             '完全隐藏': !entry.isIntersecting,
             '阅读时长': Math.round((Date.now() - startTime) / 1000) + '秒',
-            '元素位置': {
-              '顶部': Math.round(entry.boundingClientRect.top) + 'px',
-              '底部': Math.round(entry.boundingClientRect.bottom) + 'px',
-              '高度': Math.round(entry.boundingClientRect.height) + 'px',
-              '可见高度': Math.round(entry.intersectionRect.height) + 'px'
+            '尺寸信息': {
+              '元素高度': Math.round(elementHeight) + 'px',
+              '视口高度': viewportHeight + 'px',
+              '可见高度': Math.round(visibleHeight) + 'px',
+              '基准高度': Math.round(baseHeight) + 'px',
+              '元素顶部': Math.round(entry.boundingClientRect.top) + 'px',
+              '元素底部': Math.round(entry.boundingClientRect.bottom) + 'px'
             }
           });
         }
       });
     }, {
-      threshold: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+      threshold: [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 
+                  0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0]
     });
 
     observer.observe(aiOverviewRef.current);
