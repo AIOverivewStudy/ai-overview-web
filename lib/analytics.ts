@@ -1,7 +1,6 @@
 // Analytics service for tracking link clicks and visit duration
 import { saveTaskRecordWithRetry } from "@/lib/database-service";
 
-
 // 统一使用types/api.ts中的类型定义
 import type {
   TaskSession,
@@ -12,10 +11,6 @@ import type {
   InteractionComponentName,
   PageContext,
 } from "@/types/api";
-
-
-
-
 
 const extractUrlParams = () => {
   if (typeof window === "undefined") {
@@ -35,24 +30,24 @@ const extractUrlParams = () => {
   // Extract RID from query parameters first, then sessionStorage
   // Priority: URL param > sessionStorage (tab-specific)
   let participant_id = searchParams.get("RID");
-  
+
   if (!participant_id) {
     // Try sessionStorage first (tab-specific)
     participant_id = sessionStorage.getItem("RID");
   }
-  
+
   if (!participant_id) {
     // No fallback to sessionStorage - maintain complete tab isolation
     participant_id = null;
   }
-  
+
   if (!participant_id) {
     participant_id = "0";
   }
 
   // Store RID in sessionStorage only for complete tab isolation
   if (participant_id !== "0") {
-    sessionStorage.setItem("RID", participant_id);  // Tab-specific storage
+    sessionStorage.setItem("RID", participant_id); // Tab-specific storage
     // Note: Using only sessionStorage to ensure complete tab isolation
   }
 
@@ -64,13 +59,20 @@ const extractUrlParams = () => {
   if (segments.length >= 2 && segments[0] === "iframe") {
     // For iframe paths like /iframe/CmuWebPageshmtl/product/Phone/P1/...
     // Extract the real topic from the embedded path
-    if (segments.length >= 4 && (segments[1] === "CmuWebPageshmtl" || segments[1] === "AI-overviewHtml" || segments[1] === "AI-modeHtml")) {
+    if (
+      segments.length >= 4 &&
+      (segments[1] === "CmuWebPageshmtl" ||
+        segments[1] === "AI-overviewHtml" ||
+        segments[1] === "AI-modeHtml")
+    ) {
       topic = segments[3]; // The real topic is at position 3
       treatmentGroup = `${segments[1]}_${segments[2]}`; // e.g., "CmuWebPageshmtl_product"
       originalTreatmentGroup = treatmentGroup;
-      
+
       // Try to get the original treatment group from sessionStorage to maintain continuity
-      const storedOriginalTreatmentGroup = sessionStorage.getItem("original_treatment_group");
+      const storedOriginalTreatmentGroup = sessionStorage.getItem(
+        "original_treatment_group",
+      );
       if (storedOriginalTreatmentGroup) {
         originalTreatmentGroup = storedOriginalTreatmentGroup;
       }
@@ -81,18 +83,17 @@ const extractUrlParams = () => {
     }
   } else if (segments.length >= 2) {
     topic = segments[0];
-    
+
     if (segments.length >= 4) {
       // 4段URL格式: /topic/mode/variant/page
       const mode = segments[1];
       const variant = segments[2];
       treatmentGroup = `${mode}_${variant}`;
       originalTreatmentGroup = treatmentGroup;
-      
     } else if (segments.length === 2 && segments[1] === "ai-mode") {
       // 2段URL格式: /topic/ai-mode - 这可能是从搜索结果页面导航过来的
       treatmentGroup = "ai-mode";
-      
+
       // 检查是否有from参数（来源页面），如果有则记录原始的treatment group
       if (from) {
         const fromSegments = from.split("/").filter(Boolean);
@@ -107,14 +108,15 @@ const extractUrlParams = () => {
         }
       } else {
         // 尝试从sessionStorage获取之前保存的原始treatment group (标签页隔离)
-        const savedOriginalTreatmentGroup = sessionStorage.getItem("original_treatment_group");
+        const savedOriginalTreatmentGroup = sessionStorage.getItem(
+          "original_treatment_group",
+        );
         if (savedOriginalTreatmentGroup) {
           originalTreatmentGroup = savedOriginalTreatmentGroup;
         } else {
           originalTreatmentGroup = treatmentGroup;
         }
       }
-      
     } else if (segments.length === 3) {
       // 3段URL格式: /topic/largeGroup/smallGroup (旧格式，兼容性)
       const largeGroup = segments[1];
@@ -138,28 +140,28 @@ const getCurrentPageContext = (): PageContext => {
   if (typeof window === "undefined") {
     return "search_results";
   }
-  
+
   const pathname = window.location.pathname;
-  
+
   // Check if we're in AI Mode
   if (pathname.endsWith("/ai-mode")) {
     return "ai_mode";
   }
-  
+
   // Check if it's a normal search results page pattern
   // Pattern: /{topic}/{mode}/{variant}/{page}
   const segments = pathname.split("/").filter(Boolean);
   if (segments.length >= 4) {
     return "search_results";
   }
-  
+
   // Default to search_results for other cases
   return "search_results";
 };
 
 // Save session to database with better error handling
 const saveSessionToDatabase = async (
-  session: TaskSession
+  session: TaskSession,
 ): Promise<boolean> => {
   try {
     console.log("Saving session to database:", session);
@@ -184,7 +186,10 @@ const getCurrentUTCTimestamp = () => {
 
 // Helper function to revive Date objects from JSON
 const reviveDates = (key: string, value: unknown): unknown => {
-  if (typeof value === 'string' && (key.includes('time') || key === 'timestamp' || key === 'returnTimestamp')) {
+  if (
+    typeof value === "string" &&
+    (key.includes("time") || key === "timestamp" || key === "returnTimestamp")
+  ) {
     return new Date(value);
   }
   return value;
@@ -208,57 +213,73 @@ const getClickStartTimeStackKey = (): string => {
 };
 
 // Helper functions for managing click event stack
-const pushClickEventToStack = (clickEvent: ClickEvent, startTime: string): void => {
+const pushClickEventToStack = (
+  clickEvent: ClickEvent,
+  startTime: string,
+): void => {
   const eventStackKey = getClickEventStackKey();
   const timeStackKey = getClickStartTimeStackKey();
-  
+
   // Get existing stacks or create new ones
-  const eventStack: ClickEvent[] = JSON.parse(sessionStorage.getItem(eventStackKey) || '[]', reviveDates);
-  const timeStack: string[] = JSON.parse(sessionStorage.getItem(timeStackKey) || '[]');
-  
+  const eventStack: ClickEvent[] = JSON.parse(
+    sessionStorage.getItem(eventStackKey) || "[]",
+    reviveDates,
+  );
+  const timeStack: string[] = JSON.parse(
+    sessionStorage.getItem(timeStackKey) || "[]",
+  );
+
   // Push new items
   eventStack.push(clickEvent);
   timeStack.push(startTime);
-  
+
   // Store back to sessionStorage
   sessionStorage.setItem(eventStackKey, JSON.stringify(eventStack));
   sessionStorage.setItem(timeStackKey, JSON.stringify(timeStack));
-  
-  console.log("📚 Pushed click event to stack:", { 
-    stackSize: eventStack.length, 
-    pageId: clickEvent.page_id 
+
+  console.log("📚 Pushed click event to stack:", {
+    stackSize: eventStack.length,
+    pageId: clickEvent.page_id,
   });
 };
 
-const popClickEventFromStack = (): { clickEvent: ClickEvent; startTime: string } | null => {
+const popClickEventFromStack = (): {
+  clickEvent: ClickEvent;
+  startTime: string;
+} | null => {
   const eventStackKey = getClickEventStackKey();
   const timeStackKey = getClickStartTimeStackKey();
-  
+
   // Get existing stacks
-  const eventStack: ClickEvent[] = JSON.parse(sessionStorage.getItem(eventStackKey) || '[]', reviveDates);
-  const timeStack: string[] = JSON.parse(sessionStorage.getItem(timeStackKey) || '[]');
-  
+  const eventStack: ClickEvent[] = JSON.parse(
+    sessionStorage.getItem(eventStackKey) || "[]",
+    reviveDates,
+  );
+  const timeStack: string[] = JSON.parse(
+    sessionStorage.getItem(timeStackKey) || "[]",
+  );
+
   if (eventStack.length === 0 || timeStack.length === 0) {
     return null;
   }
-  
+
   // Pop items
   const clickEvent = eventStack.pop();
   const startTime = timeStack.pop();
-  
+
   if (!clickEvent || !startTime) {
     return null;
   }
-  
+
   // Store back to sessionStorage
   sessionStorage.setItem(eventStackKey, JSON.stringify(eventStack));
   sessionStorage.setItem(timeStackKey, JSON.stringify(timeStack));
-  
-  console.log("📚 Popped click event from stack:", { 
-    remainingStackSize: eventStack.length, 
-    pageId: clickEvent.page_id 
+
+  console.log("📚 Popped click event from stack:", {
+    remainingStackSize: eventStack.length,
+    pageId: clickEvent.page_id,
   });
-  
+
   return { clickEvent, startTime };
 };
 
@@ -271,25 +292,31 @@ const parseSessionFromStorage = (sessionRaw: string): TaskSession | null => {
       parsed.task_start_time = new Date(parsed.task_start_time);
     }
     if (parsed.click_sequence) {
-      parsed.click_sequence.forEach((c: { click_time?: string | number | Date }) => {
-        if (c.click_time && !(c.click_time instanceof Date)) {
-          c.click_time = new Date(c.click_time);
-        }
-      });
+      parsed.click_sequence.forEach(
+        (c: { click_time?: string | number | Date }) => {
+          if (c.click_time && !(c.click_time instanceof Date)) {
+            c.click_time = new Date(c.click_time);
+          }
+        },
+      );
     }
     if (parsed.show_all_content_clicks) {
-      parsed.show_all_content_clicks.forEach((s: { click_time?: string | number | Date }) => {
-        if (s.click_time && !(s.click_time instanceof Date)) {
-          s.click_time = new Date(s.click_time);
-        }
-      });
+      parsed.show_all_content_clicks.forEach(
+        (s: { click_time?: string | number | Date }) => {
+          if (s.click_time && !(s.click_time instanceof Date)) {
+            s.click_time = new Date(s.click_time);
+          }
+        },
+      );
     }
     if (parsed.show_all_references_clicks) {
-      parsed.show_all_references_clicks.forEach((s: { click_time?: string | number | Date }) => {
-        if (s.click_time && !(s.click_time instanceof Date)) {
-          s.click_time = new Date(s.click_time);
-        }
-      });
+      parsed.show_all_references_clicks.forEach(
+        (s: { click_time?: string | number | Date }) => {
+          if (s.click_time && !(s.click_time instanceof Date)) {
+            s.click_time = new Date(s.click_time);
+          }
+        },
+      );
     }
     return parsed;
   } catch (error) {
@@ -301,18 +328,21 @@ const parseSessionFromStorage = (sessionRaw: string): TaskSession | null => {
 // 提取公共逻辑：获取下一个点击顺序
 const getNextClickOrder = (session: TaskSession): number => {
   const lastClick = session.click_sequence.at(-1)?.click_order || 0;
-  const lastShowAllContent = session.show_all_content_clicks.at(-1)?.click_order || 0;
-  const lastShowAllReferences = session.show_all_references_clicks.at(-1)?.click_order || 0;
+  const lastShowAllContent =
+    session.show_all_content_clicks.at(-1)?.click_order || 0;
+  const lastShowAllReferences =
+    session.show_all_references_clicks.at(-1)?.click_order || 0;
   return Math.max(lastClick, lastShowAllContent, lastShowAllReferences) + 1;
 };
 
 const createNewSession = async (): Promise<TaskSession> => {
-  const { topic, treatmentGroup, participant_id, originalTreatmentGroup } = extractUrlParams();
+  const { topic, treatmentGroup, participant_id, originalTreatmentGroup } =
+    extractUrlParams();
   const taskType = getTaskType(topic);
-  
+
   // Use original treatment group if available for task continuity
   const sessionTreatmentGroup = originalTreatmentGroup || treatmentGroup;
-  
+
   // Create new session
   const newSession: TaskSession = {
     task_id: `${participant_id}_${topic}_${sessionTreatmentGroup}`,
@@ -331,12 +361,15 @@ const createNewSession = async (): Promise<TaskSession> => {
     page_click_statics_4: 0,
   };
 
-  console.log(`Creating new session for participant ${participant_id}:`, newSession);
-  
+  console.log(
+    `Creating new session for participant ${participant_id}:`,
+    newSession,
+  );
+
   // Use participant-specific session key in sessionStorage
   const sessionKey = `current_task_session_${participant_id}`;
   sessionStorage.setItem(sessionKey, JSON.stringify(newSession));
-  
+
   // Store the original treatment group for navigation (使用sessionStorage实现标签页隔离)
   if (originalTreatmentGroup) {
     sessionStorage.setItem("original_treatment_group", originalTreatmentGroup);
@@ -351,17 +384,19 @@ const createNewSession = async (): Promise<TaskSession> => {
 
 // Get current task session
 const getCurrentTaskSession = async (): Promise<TaskSession> => {
-  const { topic, treatmentGroup, originalTreatmentGroup, participant_id } = extractUrlParams();
+  const { topic, treatmentGroup, originalTreatmentGroup, participant_id } =
+    extractUrlParams();
   const taskType = getTaskType(topic);
 
   // Use participant-specific session key to isolate sessions by RID
   const sessionKey = `current_task_session_${participant_id}`;
-  
+
   // Debug: Log current sessionStorage state for dwell time tracking
   const clickEventStackKey = getClickEventStackKey();
   const clickStartTimeStackKey = getClickStartTimeStackKey();
   const hasClickEvent = sessionStorage.getItem(clickEventStackKey) !== null;
-  const hasClickStartTime = sessionStorage.getItem(clickStartTimeStackKey) !== null;
+  const hasClickStartTime =
+    sessionStorage.getItem(clickStartTimeStackKey) !== null;
   console.log("🔍 getCurrentTaskSession debug:", {
     url: window.location.href,
     topic,
@@ -369,14 +404,15 @@ const getCurrentTaskSession = async (): Promise<TaskSession> => {
     participant_id,
     sessionKey,
     hasClickEvent,
-    hasClickStartTime
+    hasClickStartTime,
   });
-  
+
   // Try to get existing session (participant-specific) from sessionStorage
   const existingSession = sessionStorage.getItem(sessionKey);
   if (existingSession) {
     try {
-      const session: TaskSession | null = parseSessionFromStorage(existingSession);
+      const session: TaskSession | null =
+        parseSessionFromStorage(existingSession);
       if (!session) {
         throw new Error("Failed to parse session from storage");
       }
@@ -386,43 +422,59 @@ const getCurrentTaskSession = async (): Promise<TaskSession> => {
       // 1. Same topic and task type
       // 2. Either same treatment group OR navigating to/from AI Mode within same variant
       // 3. OR navigating to iframe pages (for dwell time tracking continuity)
-      const isIframeNavigation = treatmentGroup.includes("CmuWebPageshmtl") || 
-                                treatmentGroup.includes("AI-overviewHtml") || 
-                                treatmentGroup.includes("AI-modeHtml");
-      
-      const isSameTask = session.task_topic === topic && 
-                        session.task_type === taskType && 
-                        (session.treatment_group === treatmentGroup || 
-                         session.treatment_group === originalTreatmentGroup ||
-                         (treatmentGroup === "ai-mode" && originalTreatmentGroup && session.treatment_group === originalTreatmentGroup) ||
-                         isIframeNavigation); // Allow iframe navigation to maintain session continuity
+      const isIframeNavigation =
+        treatmentGroup.includes("CmuWebPageshmtl") ||
+        treatmentGroup.includes("AI-overviewHtml") ||
+        treatmentGroup.includes("AI-modeHtml");
+
+      const isSameTask =
+        session.task_topic === topic &&
+        session.task_type === taskType &&
+        (session.treatment_group === treatmentGroup ||
+          session.treatment_group === originalTreatmentGroup ||
+          (treatmentGroup === "ai-mode" &&
+            originalTreatmentGroup &&
+            session.treatment_group === originalTreatmentGroup) ||
+          isIframeNavigation); // Allow iframe navigation to maintain session continuity
 
       if (!isSameTask) {
         console.log(
-          "Session parameters changed, ending current session and creating new one"
+          "Session parameters changed, ending current session and creating new one",
         );
-        console.log("🚨 IMPORTANT: About to end session - this might clear dwell time data!");
+        console.log(
+          "🚨 IMPORTANT: About to end session - this might clear dwell time data!",
+        );
         console.log("Current sessionStorage state:", {
-          hasClickEventStack: sessionStorage.getItem(getClickEventStackKey()) !== null,
-          hasClickStartTimeStack: sessionStorage.getItem(getClickStartTimeStackKey()) !== null
+          hasClickEventStack:
+            sessionStorage.getItem(getClickEventStackKey()) !== null,
+          hasClickStartTimeStack:
+            sessionStorage.getItem(getClickStartTimeStackKey()) !== null,
         });
         endTaskSession();
         return await createNewSession();
       }
-      
+
       // Store the original path for navigation purposes (使用sessionStorage实现标签页隔离)
       if (originalTreatmentGroup && originalTreatmentGroup !== treatmentGroup) {
-        sessionStorage.setItem("original_treatment_group", originalTreatmentGroup);
+        sessionStorage.setItem(
+          "original_treatment_group",
+          originalTreatmentGroup,
+        );
       }
-      
+
       return session;
     } catch (error) {
-      console.error("Failed to parse existing session from sessionStorage, creating new session:", error);
+      console.error(
+        "Failed to parse existing session from sessionStorage, creating new session:",
+        error,
+      );
       sessionStorage.removeItem(sessionKey);
       return await createNewSession();
     }
   } else {
-    console.log(`No existing session found for participant ${participant_id}, creating new one`);
+    console.log(
+      `No existing session found for participant ${participant_id}, creating new one`,
+    );
     return await createNewSession();
   }
 };
@@ -431,7 +483,8 @@ const getCurrentTaskSession = async (): Promise<TaskSession> => {
 export const trackLinkClick = async (
   componentName: ComponentName | "clickPagination_",
   linkIndex: number | string,
-  linkText: string
+  linkText: string,
+  sponsored?: boolean,
 ): Promise<string> => {
   console.log("Tracking link click");
 
@@ -514,6 +567,7 @@ export const trackLinkClick = async (
     dwell_time_sec: null, // Will be updated when user returns
     from_overview: fromOverview,
     from_ai_mode: fromAiMode,
+    sponsored: sponsored || false,
     page_context: getCurrentPageContext(), // 添加页面上下文
   };
 
@@ -568,7 +622,7 @@ const getPageNumber = (input: string): number | null => {
 };
 
 export const trackShowAllContentClick = async (
-  componentName: InteractionComponentName
+  componentName: InteractionComponentName,
 ): Promise<void> => {
   const currSession = await getCurrentTaskSession();
   const clickTime = getCurrentUTCTimestamp();
@@ -594,7 +648,7 @@ export const trackShowAllContentClick = async (
 };
 
 export const trackShowAllReferencesClick = async (
-  componentName: InteractionComponentName
+  componentName: InteractionComponentName,
 ): Promise<void> => {
   const currSession = await getCurrentTaskSession();
   const clickTime = getCurrentUTCTimestamp();
@@ -626,26 +680,29 @@ export const trackShowAllReferencesClick = async (
 
 // Track filter references button clicks (LinkIcon clicks)
 export const trackFilterReferencesClick = async (
-  referenceIndexes: number[], 
+  referenceIndexes: number[],
   componentName: string = "AiOverview",
   globalReferenceIndex?: number,
-  textBlockContent?: string
+  textBlockContent?: string,
 ): Promise<void> => {
   try {
     const currSession = await getCurrentTaskSession();
     const clickTime = getCurrentUTCTimestamp();
     const nextOrder = getNextClickOrder(currSession);
-    
+
     const filterReferencesClick: ShowAllReferencesClick = {
       task_id: currSession.task_id,
       click_order: nextOrder,
       click_time: clickTime,
-      component_name: `${componentName}_FilterReferences` as InteractionComponentName,
+      component_name:
+        `${componentName}_FilterReferences` as InteractionComponentName,
       page_context: getCurrentPageContext(),
       // 添加筛选引用的详细信息
       filter_reference_indexes: referenceIndexes || [], // 确保总是提供数组
       global_reference_index: globalReferenceIndex,
-      text_block_content: textBlockContent ? textBlockContent.substring(0, 100) : undefined, // 截取前100字符作为摘要
+      text_block_content: textBlockContent
+        ? textBlockContent.substring(0, 100)
+        : undefined, // 截取前100字符作为摘要
       filtered_references_count: referenceIndexes ? referenceIndexes.length : 0,
     };
 
@@ -660,9 +717,11 @@ export const trackFilterReferencesClick = async (
       componentName,
       globalReferenceIndex,
       referencesCount: referenceIndexes.length,
-      textBlockSummary: textBlockContent ? textBlockContent.substring(0, 50) + "..." : "N/A"
+      textBlockSummary: textBlockContent
+        ? textBlockContent.substring(0, 50) + "..."
+        : "N/A",
     });
-    
+
     // Save to database
     await saveSessionToDatabase(currSession);
   } catch (error) {
@@ -672,54 +731,67 @@ export const trackFilterReferencesClick = async (
 
 // Track reference link (LinkIcon) clicks - DEPRECATED: Use trackFilterReferencesClick instead
 export const trackReferenceLinkClick = async (
-  referenceIndexes: number[], 
+  referenceIndexes: number[],
   componentName: string = "AiOverview",
   globalReferenceIndex?: number,
-  textBlockContent?: string
+  textBlockContent?: string,
 ): Promise<void> => {
   // Redirect to the new function for backward compatibility
-  console.warn("trackReferenceLinkClick is deprecated, use trackFilterReferencesClick instead");
-  await trackFilterReferencesClick(referenceIndexes, componentName, globalReferenceIndex, textBlockContent);
+  console.warn(
+    "trackReferenceLinkClick is deprecated, use trackFilterReferencesClick instead",
+  );
+  await trackFilterReferencesClick(
+    referenceIndexes,
+    componentName,
+    globalReferenceIndex,
+    textBlockContent,
+  );
 };
 
 // Track AI Mode page dwell time when user clicks "All" button
 const trackAiModePageDwellTime = async (): Promise<void> => {
   try {
     console.log("🎯 Tracking AI Mode page dwell time");
-    
+
     // Get page load time from navigation API or fallback to session storage
     let pageStartTime: number;
-    
-    if (typeof window !== 'undefined' && window.performance && window.performance.navigation) {
+
+    if (
+      typeof window !== "undefined" &&
+      window.performance &&
+      window.performance.navigation
+    ) {
       // Use navigation start time
       pageStartTime = window.performance.timing.navigationStart;
       console.log("📊 Using navigation timing for page start time");
     } else {
       // Fallback: try to get from session storage
-      const storedStartTime = sessionStorage.getItem('ai_mode_page_start_time');
+      const storedStartTime = sessionStorage.getItem("ai_mode_page_start_time");
       if (storedStartTime) {
         pageStartTime = parseInt(storedStartTime);
         console.log("📊 Using stored page start time from sessionStorage");
       } else {
-        console.log("⚠️ No page start time available, cannot calculate dwell time");
+        console.log(
+          "⚠️ No page start time available, cannot calculate dwell time",
+        );
         return;
       }
     }
-    
+
     const dwellTimeMs = Date.now() - pageStartTime;
     const dwellTimeSec = Math.round((dwellTimeMs / 1000) * 10) / 10;
-    
+
     console.log("⏱️ AI Mode page dwell time calculated:", {
       dwellTimeMs,
       dwellTimeSec,
       startTime: new Date(pageStartTime).toLocaleTimeString(),
-      endTime: new Date().toLocaleTimeString()
+      endTime: new Date().toLocaleTimeString(),
     });
-    
+
     // Create a synthetic click event for AI Mode page visit
     const session = await getCurrentTaskSession();
     const clickTime = new Date(pageStartTime);
-    
+
     const aiModeVisitEvent: ClickEvent = {
       task_id: session.task_id,
       click_order: getNextClickOrder(session),
@@ -732,19 +804,18 @@ const trackAiModePageDwellTime = async (): Promise<void> => {
       from_ai_mode: true,
       page_context: "ai_mode",
     };
-    
+
     // Add to session
     session.click_sequence.push(aiModeVisitEvent);
-    
+
     // Update sessionStorage
     const sessionKey = getSessionKey();
     sessionStorage.setItem(sessionKey, JSON.stringify(session));
-    
+
     console.log("✅ AI Mode page dwell time recorded:", dwellTimeSec + "s");
-    
+
     // Save to database
     await saveSessionToDatabase(session);
-    
   } catch (error) {
     console.error("Failed to track AI Mode page dwell time:", error);
   }
@@ -756,87 +827,105 @@ let lastProcessedStack: string | null = null; // track last processed stack item
 export const trackReturnFromLink = async (caller?: string): Promise<void> => {
   // 获取调用堆栈信息
   const stack = new Error().stack;
-  const callerInfo = stack?.split('\n')[2]?.trim() || 'unknown';
+  const callerInfo = stack?.split("\n")[2]?.trim() || "unknown";
   const timestamp = new Date().toISOString();
-  
+
   console.log("🔍 trackReturnFromLink called");
-  console.log("📍 Called from:", caller || 'not specified');
+  console.log("📍 Called from:", caller || "not specified");
   console.log("📍 Stack trace:", callerInfo);
   console.log("⏰ Timestamp:", timestamp);
   console.log("🌐 Current URL:", window.location.href);
   console.log("📄 Document visibility:", document.visibilityState);
   console.log("🎯 Window focused:", document.hasFocus());
-  
+
   // Special handling for AI Mode "All" button clicks
   if (caller === "ai_mode_all_button") {
-    console.log("🎯 AI Mode All button click detected - tracking page dwell time");
+    console.log(
+      "🎯 AI Mode All button click detected - tracking page dwell time",
+    );
     await trackAiModePageDwellTime();
     return;
   }
-  
+
   // Simple deduplication: prevent concurrent processing
   if (isTracking) {
-    console.log("⏳ Already tracking, skipping to prevent concurrent processing...");
-    console.log("🚫 Tracking blocked by:", caller || 'not specified');
+    console.log(
+      "⏳ Already tracking, skipping to prevent concurrent processing...",
+    );
+    console.log("🚫 Tracking blocked by:", caller || "not specified");
     return;
   }
-  
+
   // Check if we have a pending click event before proceeding
   const eventStackKey = getClickEventStackKey();
   const currentStackContent = sessionStorage.getItem(eventStackKey);
-  
-  if (!currentStackContent || currentStackContent === '[]') {
+
+  if (!currentStackContent || currentStackContent === "[]") {
     console.log("❌ No click events in stack, nothing to process");
     console.log("❌ Stack check details:", {
-      caller: caller || 'not specified',
+      caller: caller || "not specified",
       eventStackKey,
       hasStack: currentStackContent !== null,
       stackContent: currentStackContent,
-      stackIsEmpty: currentStackContent === '[]'
+      stackIsEmpty: currentStackContent === "[]",
     });
     return;
   }
-  
+
   // Prevent processing the same stack state multiple times (but allow different callers)
   const stackStateKey = `${currentStackContent}_${caller}`;
   if (lastProcessedStack === stackStateKey) {
-    console.log("🔄 Same stack content and caller already processed, skipping to prevent duplicates");
+    console.log(
+      "🔄 Same stack content and caller already processed, skipping to prevent duplicates",
+    );
     console.log("🔄 Duplicate check:", { stackStateKey, lastProcessedStack });
     return;
   }
-  
+
   // Pop the most recent click event from the stack
   const stackItem = popClickEventFromStack();
-  console.log("💾 click event stack pop result:", stackItem ? "SUCCESS" : "EMPTY");
-  
+  console.log(
+    "💾 click event stack pop result:",
+    stackItem ? "SUCCESS" : "EMPTY",
+  );
+
   if (!stackItem) {
-    console.log("❌ No click event found in stack, user did not come from a tracked link");
+    console.log(
+      "❌ No click event found in stack, user did not come from a tracked link",
+    );
     console.log("❌ Check details:", {
-      caller: caller || 'not specified',
+      caller: caller || "not specified",
       sessionStorageKeys: Object.keys(sessionStorage),
-      hasAnyClickEventStack: Object.keys(sessionStorage).some(key => key.includes('click_event_stack'))
+      hasAnyClickEventStack: Object.keys(sessionStorage).some((key) =>
+        key.includes("click_event_stack"),
+      ),
     });
     return;
   }
 
   console.log("✅ User returned from a tracked link, processing dwell time...");
-  console.log("✅ Dwell time processing triggered by:", caller || 'not specified');
-  
+  console.log(
+    "✅ Dwell time processing triggered by:",
+    caller || "not specified",
+  );
+
   // Record that we're processing this specific stack content with this caller
   lastProcessedStack = stackStateKey;
   isTracking = true; // lock
 
   try {
     const { clickEvent, startTime } = stackItem;
-    
+
     // Ensure click_time is a Date object
     if (clickEvent.click_time && !(clickEvent.click_time instanceof Date)) {
       clickEvent.click_time = new Date(clickEvent.click_time);
     }
-    
+
     console.log("📊 Click event data:", {
       clickEvent: clickEvent,
-      startTime: startTime ? new Date(Number(startTime)).toLocaleTimeString() : "NOT FOUND"
+      startTime: startTime
+        ? new Date(Number(startTime)).toLocaleTimeString()
+        : "NOT FOUND",
     });
 
     if (!clickEvent || !startTime) {
@@ -847,34 +936,46 @@ export const trackReturnFromLink = async (caller?: string): Promise<void> => {
     const dwellTimeMs = Date.now() - Number.parseInt(startTime);
     const dwellTimeSec = Math.round((dwellTimeMs / 1000) * 10) / 10;
     clickEvent.dwell_time_sec = dwellTimeSec;
-    
+
     console.log("⏱️ Calculated dwell time:", {
       dwellTimeMs: dwellTimeMs,
       dwellTimeSec: dwellTimeSec,
       startTime: new Date(Number(startTime)).toLocaleTimeString(),
       endTime: new Date().toLocaleTimeString(),
-      triggeredBy: caller || 'not specified',
+      triggeredBy: caller || "not specified",
       clickEventPageId: clickEvent.page_id,
-      clickEventTaskId: clickEvent.task_id
+      clickEventTaskId: clickEvent.task_id,
     });
 
     const session = await getCurrentTaskSession();
 
-    console.log("🔍 Finding and updating existing click event with dwell time...");
-    
-    // Find the existing click event and update its dwell time
-    const clickTimeString = clickEvent.click_time instanceof Date ? clickEvent.click_time.toISOString() : new Date(clickEvent.click_time).toISOString();
-    const existingClickIndex = session.click_sequence.findIndex(
-      (c) => {
-        const existingClickTimeString = c.click_time instanceof Date ? c.click_time.toISOString() : new Date(c.click_time).toISOString();
-        return existingClickTimeString === clickTimeString && c.page_id === clickEvent.page_id;
-      }
+    console.log(
+      "🔍 Finding and updating existing click event with dwell time...",
     );
+
+    // Find the existing click event and update its dwell time
+    const clickTimeString =
+      clickEvent.click_time instanceof Date
+        ? clickEvent.click_time.toISOString()
+        : new Date(clickEvent.click_time).toISOString();
+    const existingClickIndex = session.click_sequence.findIndex((c) => {
+      const existingClickTimeString =
+        c.click_time instanceof Date
+          ? c.click_time.toISOString()
+          : new Date(c.click_time).toISOString();
+      return (
+        existingClickTimeString === clickTimeString &&
+        c.page_id === clickEvent.page_id
+      );
+    });
 
     if (existingClickIndex !== -1) {
       // Update the existing click event with dwell time
-      session.click_sequence[existingClickIndex].dwell_time_sec = clickEvent.dwell_time_sec;
-      console.log(`✅ Updated existing click event at index ${existingClickIndex} with dwell time: ${clickEvent.dwell_time_sec}s`);
+      session.click_sequence[existingClickIndex].dwell_time_sec =
+        clickEvent.dwell_time_sec;
+      console.log(
+        `✅ Updated existing click event at index ${existingClickIndex} with dwell time: ${clickEvent.dwell_time_sec}s`,
+      );
     } else {
       // If not found, add as new click event (fallback)
       session.click_sequence.push(clickEvent);
@@ -884,13 +985,16 @@ export const trackReturnFromLink = async (caller?: string): Promise<void> => {
     const sessionKey = getSessionKey();
     sessionStorage.setItem(sessionKey, JSON.stringify(session));
 
-    console.log(`✅ Dwell time recorded: ${dwellTimeSec}s, updating database...`);
+    console.log(
+      `✅ Dwell time recorded: ${dwellTimeSec}s, updating database...`,
+    );
     console.log("💾 Database update details:", {
       sessionTaskId: session.task_id,
       participantId: session.participant_id,
       clickSequenceLength: session.click_sequence.length,
-      lastClickPageId: session.click_sequence[session.click_sequence.length - 1]?.page_id,
-      triggeredBy: caller || 'not specified'
+      lastClickPageId:
+        session.click_sequence[session.click_sequence.length - 1]?.page_id,
+      triggeredBy: caller || "not specified",
     });
     await saveSessionToDatabase(session);
     console.log("💾 Database updated successfully");
@@ -921,8 +1025,6 @@ export const endTaskSession = (): void => {
   console.log(`Task ${taskId} ended, saving final state to database...`);
 };
 
-
-
 // Initialize session tracking
 let isInitialized = false;
 export const initializeSession = (): void => {
@@ -930,7 +1032,7 @@ export const initializeSession = (): void => {
     console.log("Session already initialized, skipping...");
     return;
   }
-  
+
   // This will create a new session if none exists
   console.log("Initializing session...");
   isInitialized = true;
