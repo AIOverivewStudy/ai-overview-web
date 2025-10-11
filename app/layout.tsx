@@ -5,6 +5,7 @@ import { AnalyticsTracker } from "@/components/analytics-tracker";
 import { PostHogIdentity } from "@/components/posthog-identity";
 import { EnhancedPostHogTracker } from "@/components/enhanced-posthog-tracker";
 import { IframeVisibilityTracker } from "@/components/iframe-visibility-tracker";
+import { PageEngagementTracker } from "@/components/page-engagement-tracker";
 import { Suspense } from "react";
 
 export default function RootLayout({
@@ -16,6 +17,7 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <AnalyticsTracker />
+        <PageEngagementTracker config={{ enableConsoleLogging: true }} />
         <Suspense fallback={null}>
           <PostHogIdentity />
           <EnhancedPostHogTracker />
