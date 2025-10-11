@@ -383,7 +383,7 @@ const createNewSession = async (): Promise<TaskSession> => {
 };
 
 // Get current task session
-const getCurrentTaskSession = async (): Promise<TaskSession> => {
+export const getCurrentTaskSession = async (): Promise<TaskSession> => {
   const { topic, treatmentGroup, originalTreatmentGroup, participant_id } =
     extractUrlParams();
   const taskType = getTaskType(topic);

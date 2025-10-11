@@ -26,6 +26,7 @@ model TaskRecord {
   click_sequence              ClickEvent[]
   show_all_content_clicks     ShowAllContentClick[]
   show_all_references_clicks  ShowAllReferencesClick[]
+  page_engagements            PageEngagement[]
 
   @@map("task_records")
 }
@@ -82,4 +83,32 @@ model ShowAllReferencesClick {
   taskRecord                TaskRecord @relation(fields: [task_record_id], references: [id], onDelete: Cascade)
 
   @@map("show_all_references_clicks")
+}
+
+model PageEngagement {
+  id                   Int        @id @default(autoincrement())
+  task_record_id       Int
+  task_id              String
+  session_id           String     // 保持原有的sessionId用于前端关联
+  url                  String
+  referrer             String?
+  user_agent           String
+  client_ip            String?
+  total_time_on_page   Int        // 毫秒
+  active_time          Int        // 毫秒
+  idle_time            Int        // 毫秒
+  visibility_changes   Int        @default(0)
+  scroll_depth         Int        @default(0) // 百分比
+  interactions         Int        @default(0)
+  engagement_rate      Float      // 参与度百分比
+  session_start        DateTime   @db.Timestamptz
+  last_activity        DateTime   @db.Timestamptz
+  page_context         String?    // "search_results" | "ai_mode"
+  created_at           DateTime   @default(now()) @db.Timestamptz
+  updated_at           DateTime   @updatedAt @db.Timestamptz
+
+  taskRecord           TaskRecord @relation(fields: [task_record_id], references: [id], onDelete: Cascade)
+
+  @@unique([session_id, task_record_id], name: "session_id_task_record_id")
+  @@map("page_engagements")
 }
