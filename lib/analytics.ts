@@ -486,11 +486,21 @@ export const trackLinkClick = async (
   linkText: string,
   sponsored?: boolean,
 ): Promise<string> => {
-  console.log("Tracking link click");
+  console.log("🔗 [LinkClick] Tracking link click", {
+    timestamp: new Date().toISOString(),
+    componentName,
+    linkIndex,
+    linkText: linkText.substring(0, 50) + (linkText.length > 50 ? "..." : ""),
+    sponsored: sponsored || false,
+  });
 
   const session = await getCurrentTaskSession();
-  console.log("session", session);
-  console.log("session.click_sequence length:", session.click_sequence.length);
+  console.log("📋 [LinkClick] Current session", {
+    taskId: session.task_id,
+    participantId: session.participant_id,
+    clickSequenceLength: session.click_sequence.length,
+    treatmentGroup: session.treatment_group,
+  });
 
   const clickTime = getCurrentUTCTimestamp();
 
@@ -577,10 +587,26 @@ export const trackLinkClick = async (
   // Store click event in sessionStorage stack for dwell time tracking
   const startTimeString = Date.now().toString();
   pushClickEventToStack(clickEvent, startTimeString);
-  console.log("💾 Click event pushed to stack:", clickEvent.page_id);
-  console.log("💾 Full click event:", clickEvent);
+  console.log("💾 [DwellTime] Click event pushed to stack", {
+    pageId: clickEvent.page_id,
+    pageTitle: clickEvent.page_title,
+    clickOrder: clickEvent.click_order,
+    positionInSerp: clickEvent.position_in_serp,
+    startTime: new Date(Number(startTimeString)).toISOString(),
+    fromOverview: clickEvent.from_overview,
+    fromAiMode: clickEvent.from_ai_mode,
+    pageContext: clickEvent.page_context,
+  });
 
-  console.log("当前session.click_sequence:", session);
+  console.log("📊 [Session] Current click sequence", {
+    totalClicks: session.click_sequence.length,
+    pageClickStats: {
+      page1: session.page_click_statics_1,
+      page2: session.page_click_statics_2,
+      page3: session.page_click_statics_3,
+      page4: session.page_click_statics_4,
+    },
+  });
 
   // Update page click statistics
   if (componentName.includes("SearchResults")) {
@@ -596,7 +622,7 @@ export const trackLinkClick = async (
     }
   }
 
-  console.log(`Tracked click: ${pageId} - "${linkText}", updating database...`);
+  console.log(`✅ [LinkClick] Click tracked: ${pageId} - "${linkText.substring(0, 30)}..."`);
 
   // Add click event to session (without dwell time initially)
   session.click_sequence.push(clickEvent);
@@ -606,12 +632,17 @@ export const trackLinkClick = async (
   sessionStorage.setItem(sessionKey, JSON.stringify(session));
 
   // Save updated session to database and wait for completion
+  console.log("💾 [Database] Saving session to database...");
   const result = await saveSessionToDatabase(session);
-  console.log("保存结果", result);
+  console.log("💾 [Database] Save result:", result ? "✅ SUCCESS" : "❌ FAILED");
 
   // Click info is already stored in the stack above
   const clickId = `${session.participant_id}_${session.task_topic}_${session.treatment_group}_${clickEvent.click_order}`;
-  console.log("⏰ Click timer started at:", new Date().toISOString());
+  console.log("⏰ [DwellTime] Timer started", {
+    clickId,
+    startTime: new Date().toISOString(),
+    pageId: clickEvent.page_id,
+  });
 
   return clickId;
 };
@@ -830,13 +861,14 @@ export const trackReturnFromLink = async (caller?: string): Promise<void> => {
   const callerInfo = stack?.split("\n")[2]?.trim() || "unknown";
   const timestamp = new Date().toISOString();
 
-  console.log("🔍 trackReturnFromLink called");
-  console.log("📍 Called from:", caller || "not specified");
-  console.log("📍 Stack trace:", callerInfo);
-  console.log("⏰ Timestamp:", timestamp);
-  console.log("🌐 Current URL:", window.location.href);
-  console.log("📄 Document visibility:", document.visibilityState);
-  console.log("🎯 Window focused:", document.hasFocus());
+  console.log("🔙 [Return] trackReturnFromLink called", {
+    timestamp,
+    caller: caller || "not specified",
+    url: window.location.href,
+    documentVisibility: document.visibilityState,
+    windowFocused: document.hasFocus(),
+    stackTrace: callerInfo,
+  });
 
   // Special handling for AI Mode "All" button clicks
   if (caller === "ai_mode_all_button") {
@@ -849,10 +881,10 @@ export const trackReturnFromLink = async (caller?: string): Promise<void> => {
 
   // Simple deduplication: prevent concurrent processing
   if (isTracking) {
-    console.log(
-      "⏳ Already tracking, skipping to prevent concurrent processing...",
-    );
-    console.log("🚫 Tracking blocked by:", caller || "not specified");
+    console.log("⏳ [Return] Already tracking, skipping", {
+      caller: caller || "not specified",
+      reason: "concurrent_processing_prevention",
+    });
     return;
   }
 
@@ -861,13 +893,12 @@ export const trackReturnFromLink = async (caller?: string): Promise<void> => {
   const currentStackContent = sessionStorage.getItem(eventStackKey);
 
   if (!currentStackContent || currentStackContent === "[]") {
-    console.log("❌ No click events in stack, nothing to process");
-    console.log("❌ Stack check details:", {
+    console.log("❌ [Return] No click events in stack", {
       caller: caller || "not specified",
       eventStackKey,
       hasStack: currentStackContent !== null,
       stackContent: currentStackContent,
-      stackIsEmpty: currentStackContent === "[]",
+      reason: "empty_stack",
     });
     return;
   }
@@ -875,39 +906,32 @@ export const trackReturnFromLink = async (caller?: string): Promise<void> => {
   // Prevent processing the same stack state multiple times (but allow different callers)
   const stackStateKey = `${currentStackContent}_${caller}`;
   if (lastProcessedStack === stackStateKey) {
-    console.log(
-      "🔄 Same stack content and caller already processed, skipping to prevent duplicates",
-    );
-    console.log("🔄 Duplicate check:", { stackStateKey, lastProcessedStack });
+    console.log("🔄 [Return] Duplicate detected, skipping", {
+      caller: caller || "not specified",
+      stackStateKey: stackStateKey.substring(0, 100) + "...",
+      reason: "already_processed",
+    });
     return;
   }
 
   // Pop the most recent click event from the stack
   const stackItem = popClickEventFromStack();
-  console.log(
-    "💾 click event stack pop result:",
-    stackItem ? "SUCCESS" : "EMPTY",
-  );
-
+  
   if (!stackItem) {
-    console.log(
-      "❌ No click event found in stack, user did not come from a tracked link",
-    );
-    console.log("❌ Check details:", {
+    console.log("❌ [Return] No click event in stack", {
       caller: caller || "not specified",
-      sessionStorageKeys: Object.keys(sessionStorage),
-      hasAnyClickEventStack: Object.keys(sessionStorage).some((key) =>
-        key.includes("click_event_stack"),
-      ),
+      sessionStorageKeys: Object.keys(sessionStorage).filter(k => k.includes("click")),
+      reason: "stack_empty_after_pop",
     });
     return;
   }
 
-  console.log("✅ User returned from a tracked link, processing dwell time...");
-  console.log(
-    "✅ Dwell time processing triggered by:",
-    caller || "not specified",
-  );
+  console.log("✅ [Return] User returned from tracked link", {
+    caller: caller || "not specified",
+    pageId: stackItem.clickEvent.page_id,
+    pageTitle: stackItem.clickEvent.page_title,
+    clickOrder: stackItem.clickEvent.click_order,
+  });
 
   // Record that we're processing this specific stack content with this caller
   lastProcessedStack = stackStateKey;
@@ -921,15 +945,11 @@ export const trackReturnFromLink = async (caller?: string): Promise<void> => {
       clickEvent.click_time = new Date(clickEvent.click_time);
     }
 
-    console.log("📊 Click event data:", {
-      clickEvent: clickEvent,
-      startTime: startTime
-        ? new Date(Number(startTime)).toLocaleTimeString()
-        : "NOT FOUND",
-    });
-
     if (!clickEvent || !startTime) {
-      console.log("❌ Missing click event or start time, aborting...");
+      console.log("❌ [DwellTime] Missing data, aborting", {
+        hasClickEvent: !!clickEvent,
+        hasStartTime: !!startTime,
+      });
       return;
     }
 
@@ -937,21 +957,21 @@ export const trackReturnFromLink = async (caller?: string): Promise<void> => {
     const dwellTimeSec = Math.round((dwellTimeMs / 1000) * 10) / 10;
     clickEvent.dwell_time_sec = dwellTimeSec;
 
-    console.log("⏱️ Calculated dwell time:", {
-      dwellTimeMs: dwellTimeMs,
-      dwellTimeSec: dwellTimeSec,
-      startTime: new Date(Number(startTime)).toLocaleTimeString(),
-      endTime: new Date().toLocaleTimeString(),
+    console.log("⏱️ [DwellTime] Calculated", {
+      pageId: clickEvent.page_id,
+      pageTitle: clickEvent.page_title.substring(0, 50),
+      dwellTimeSec: dwellTimeSec + "s",
+      dwellTimeMs: dwellTimeMs + "ms",
+      startTime: new Date(Number(startTime)).toISOString(),
+      endTime: new Date().toISOString(),
       triggeredBy: caller || "not specified",
-      clickEventPageId: clickEvent.page_id,
-      clickEventTaskId: clickEvent.task_id,
+      taskId: clickEvent.task_id,
+      clickOrder: clickEvent.click_order,
     });
 
     const session = await getCurrentTaskSession();
 
-    console.log(
-      "🔍 Finding and updating existing click event with dwell time...",
-    );
+    console.log("🔍 [DwellTime] Finding existing click event in session...");
 
     // Find the existing click event and update its dwell time
     const clickTimeString =
@@ -971,33 +991,37 @@ export const trackReturnFromLink = async (caller?: string): Promise<void> => {
 
     if (existingClickIndex !== -1) {
       // Update the existing click event with dwell time
+      const oldDwellTime = session.click_sequence[existingClickIndex].dwell_time_sec;
       session.click_sequence[existingClickIndex].dwell_time_sec =
         clickEvent.dwell_time_sec;
-      console.log(
-        `✅ Updated existing click event at index ${existingClickIndex} with dwell time: ${clickEvent.dwell_time_sec}s`,
-      );
+      console.log("✅ [DwellTime] Updated existing click event", {
+        index: existingClickIndex,
+        pageId: clickEvent.page_id,
+        oldDwellTime: oldDwellTime ? oldDwellTime + "s" : "null",
+        newDwellTime: clickEvent.dwell_time_sec + "s",
+      });
     } else {
       // If not found, add as new click event (fallback)
       session.click_sequence.push(clickEvent);
-      console.log("⚠️ Existing click event not found, added as new event");
+      console.log("⚠️ [DwellTime] Click event not found, added as new", {
+        pageId: clickEvent.page_id,
+        clickOrder: clickEvent.click_order,
+        dwellTime: clickEvent.dwell_time_sec + "s",
+      });
     }
 
     const sessionKey = getSessionKey();
     sessionStorage.setItem(sessionKey, JSON.stringify(session));
 
-    console.log(
-      `✅ Dwell time recorded: ${dwellTimeSec}s, updating database...`,
-    );
-    console.log("💾 Database update details:", {
-      sessionTaskId: session.task_id,
+    console.log("💾 [Database] Updating session with dwell time...", {
+      taskId: session.task_id,
       participantId: session.participant_id,
       clickSequenceLength: session.click_sequence.length,
-      lastClickPageId:
-        session.click_sequence[session.click_sequence.length - 1]?.page_id,
       triggeredBy: caller || "not specified",
     });
+    
     await saveSessionToDatabase(session);
-    console.log("💾 Database updated successfully");
+    console.log("✅ [Database] Dwell time saved successfully");
   } finally {
     isTracking = false; // unlock
   }
