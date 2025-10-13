@@ -68,8 +68,8 @@ interface TrackerState {
 }
 
 const DEFAULT_CONFIG: Required<EngagementTrackerConfig> = {
-  inactivityThreshold: 30000, // 30秒
-  heartbeatInterval: 30000, // 30秒
+  inactivityThreshold: 10000,
+  heartbeatInterval: 10000,
   throttleDelay: 100, // 100ms
   debounceDelay: 100, // 100ms
   apiEndpoint: "/api/analytics/engagement",
