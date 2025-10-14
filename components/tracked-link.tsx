@@ -10,7 +10,7 @@ type TrackedLinkProps =
   | {
       href: string;
       componentName: ComponentName;
-      linkIndex: number;
+      linkIndex: number | string;
       linkPage?: number;
       sponsored?: boolean;
       className?: string;

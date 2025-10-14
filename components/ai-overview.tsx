@@ -63,6 +63,7 @@ export function AiOverview() {
   const [showAllReferences, setShowAllReferences] = useState(false)
   const [filteredReferenceIndexes, setFilteredReferenceIndexes] = useState<number[] | null>(null)
   const [showFilteredReferencesOverlay, setShowFilteredReferencesOverlay] = useState(false)
+  const [currentGlobalReferenceIndex, setCurrentGlobalReferenceIndex] = useState<number | null>(null)
   const textContentRef = useRef<HTMLDivElement>(null)
   const [textContentHeight, setTextContentHeight] = useState<number>(0)
   const aiOverviewRef = useRef<HTMLDivElement>(null)
@@ -214,6 +215,7 @@ export function AiOverview() {
       
       // Show overlay with filtered references instead of modifying the main list
       setFilteredReferenceIndexes(referenceIndexes)
+      setCurrentGlobalReferenceIndex(globalReferenceIndex || null)
       setShowFilteredReferencesOverlay(true)
     }
   }
@@ -447,7 +449,7 @@ export function AiOverview() {
                               <TrackedLink
                                 href={ref.link}
                                 componentName="AiOverview-References"
-                                linkIndex={index}
+                                linkIndex={`0-${index + 1}`}
                               >{ref.title}</TrackedLink>
                             </h3>
                             <p className="text-sm text-gray-700 mt-1 line-clamp-2">{ref.snippet}</p>
@@ -498,7 +500,7 @@ export function AiOverview() {
                             <TrackedLink
                               href={ref.link}
                               componentName="AiOverview-References"
-                              linkIndex={index}
+                              linkIndex={`0-${index + 1}`}
                             >
                               {ref.title}
                             </TrackedLink>
@@ -577,7 +579,7 @@ export function AiOverview() {
                                 <TrackedLink
                                   href={ref.link}
                                   componentName="AiOverview-References"
-                                  linkIndex={index}
+                                  linkIndex={`0-${index + 1}`}
                                 >
                                   {ref.title}
                                 </TrackedLink>
@@ -637,7 +639,7 @@ export function AiOverview() {
                               <TrackedLink
                                 href={ref.link}
                                 componentName="AiOverview-References"
-                                linkIndex={index}
+                                linkIndex={`0-${index + 1}`}
                               >
                                 {ref.title}
                               </TrackedLink>
@@ -689,6 +691,7 @@ export function AiOverview() {
                         onClick={() => {
                           setShowFilteredReferencesOverlay(false)
                           setFilteredReferenceIndexes(null)
+                          setCurrentGlobalReferenceIndex(null)
                         }}
                         className="p-2 rounded-full hover:bg-gray-100"
                       >
@@ -710,7 +713,7 @@ export function AiOverview() {
                                   <TrackedLink
                                     href={ref.link}
                                     componentName="AiOverview-References"
-                                    linkIndex={ref.index}
+                                    linkIndex={`${currentGlobalReferenceIndex || 0}-${index + 1}`}
                                   >
                                     {ref.title}
                                   </TrackedLink>

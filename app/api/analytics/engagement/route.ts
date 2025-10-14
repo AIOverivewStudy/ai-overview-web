@@ -89,22 +89,21 @@ export async function POST(request: NextRequest) {
     const engagementRate =
       totalTimeOnPage > 0 ? (activeTime / totalTimeOnPage) * 100 : 0;
 
-    // 在控制台记录数据（开发环境）
-    if (process.env.NODE_ENV === "development") {
-      console.log("📊 Page Engagement Data:", {
-        taskId: taskSession?.task_id,
-        participantId: taskSession?.participant_id,
-        url: url,
-        sessionId: sessionId,
-        totalTime: `${Math.round(totalTimeOnPage / 1000)}s`,
-        activeTime: `${Math.round(activeTime / 1000)}s`,
-        engagementRate: `${Math.round(engagementRate * 100) / 100}%`,
-        scrollDepth: `${scrollDepth}%`,
-        interactions: interactions,
-        visibilityChanges: visibilityChanges,
-        pageContext: pageContext,
-      });
-    }
+    // 在控制台记录数据（所有环境，便于诊断）
+    console.log("📊 [Engagement API] Received data:", {
+      env: process.env.NODE_ENV,
+      taskId: taskSession?.task_id,
+      participantId: taskSession?.participant_id,
+      url: url,
+      sessionId: sessionId,
+      totalTime: `${Math.round(totalTimeOnPage / 1000)}s`,
+      activeTime: `${Math.round(activeTime / 1000)}s`,
+      engagementRate: `${Math.round(engagementRate * 100) / 100}%`,
+      scrollDepth: `${scrollDepth}%`,
+      interactions: interactions,
+      visibilityChanges: visibilityChanges,
+      pageContext: pageContext,
+    });
 
     // 发送到PostHog (如果已配置)
     try {
@@ -202,22 +201,25 @@ export async function POST(request: NextRequest) {
             },
           });
 
-          if (process.env.NODE_ENV === "development") {
-            console.log("✅ Engagement data saved to database:", {
-              id: savedRecord.id,
-              taskId: savedRecord.task_id,
-              sessionId: savedRecord.session_id,
-              activeTimeSeconds: Math.round(savedRecord.active_time / 1000),
-            });
-          }
+          console.log("✅ [Engagement API] Saved to database:", {
+            env: process.env.NODE_ENV,
+            id: savedRecord.id,
+            taskId: savedRecord.task_id,
+            sessionId: savedRecord.session_id,
+            activeTimeSeconds: Math.round(savedRecord.active_time / 1000),
+          });
         } else {
           console.warn(
-            `⚠️ TaskRecord not found for task_id: ${taskSession.task_id}`,
+            `⚠️ [Engagement API] TaskRecord not found for task_id: ${taskSession.task_id}`,
           );
         }
       } else {
         console.warn(
-          "⚠️ No valid taskSession provided, skipping database save",
+          "⚠️ [Engagement API] No valid taskSession provided, skipping database save",
+          {
+            hasTaskSession: !!taskSession,
+            hasTaskId: !!taskSession?.task_id,
+          }
         );
       }
     } catch (dbError) {

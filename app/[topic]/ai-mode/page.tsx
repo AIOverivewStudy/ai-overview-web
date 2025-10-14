@@ -129,6 +129,7 @@ export default function AiModePage() {
   const [showAllReferences, setShowAllReferences] = useState(false)
   const [filteredReferenceIndexes, setFilteredReferenceIndexes] = useState<number[] | null>(null)
   const [showFilteredReferencesOverlay, setShowFilteredReferencesOverlay] = useState(false)
+  const [currentGlobalReferenceIndex, setCurrentGlobalReferenceIndex] = useState<number | null>(null)
   const [showInputPopup, setShowInputPopup] = useState(false)
   const inputTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   // 计算所有引用链接的全局索引映射
@@ -259,6 +260,7 @@ export default function AiModePage() {
       
       // Show overlay with filtered references instead of modifying the main list
       setFilteredReferenceIndexes(referenceIndexes)
+      setCurrentGlobalReferenceIndex(globalReferenceIndex || null)
       setShowFilteredReferencesOverlay(true)
     }
   }
@@ -615,7 +617,7 @@ export default function AiModePage() {
                               <h3 className="text-blue-700 hover:underline text-base font-medium">
                                 <TrackedLink
                                   componentName="AIMode"
-                                  linkIndex={index}
+                                  linkIndex={`0-${index + 1}`}
                                   href={ref.link}
                                 >
                                   {ref.title}
@@ -690,6 +692,7 @@ export default function AiModePage() {
                             onClick={() => {
                               setShowFilteredReferencesOverlay(false)
                               setFilteredReferenceIndexes(null)
+                              setCurrentGlobalReferenceIndex(null)
                             }}
                             className="p-2 rounded-full hover:bg-gray-100"
                           >
@@ -710,7 +713,7 @@ export default function AiModePage() {
                                     <h3 className="text-blue-700 hover:underline text-base font-medium">
                                       <TrackedLink
                                         componentName="AIMode"
-                                        linkIndex={ref.index}
+                                        linkIndex={`${currentGlobalReferenceIndex || 0}-${index + 1}`}
                                         href={ref.link}
                                       >
                                         {ref.title}

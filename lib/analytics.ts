@@ -506,7 +506,6 @@ export const trackLinkClick = async (
 
   // Determine page_id and other properties based on component
   let pageId = "";
-  const positionInSerp = componentName + "_" + linkIndex;
   let fromOverview = false;
   let fromAiMode = false;
 
@@ -516,54 +515,62 @@ export const trackLinkClick = async (
     fromAiMode = true;
   }
 
+  // Convert linkIndex to string format
+  // For string format like "0-1" or "3-2", keep as is
+  // For number format, add 1 (for non-reference components)
+  let linkIndexStr: string;
   if (typeof linkIndex === "number") {
-    linkIndex = `${linkIndex + 1}`;
+    linkIndexStr = `${linkIndex + 1}`;
+  } else {
+    linkIndexStr = linkIndex;
   }
+  
+  const positionInSerp = componentName + "_" + linkIndexStr;
 
   // Map component names to page IDs and properties
   if (componentName.startsWith("SearchResults_")) {
-    pageId = `organic_${linkIndex}`;
+    pageId = `organic_${linkIndexStr}`;
   } else if (componentName.startsWith("SearchResults-Sitelinks_")) {
-    pageId = `sitelink_${linkIndex}`;
+    pageId = `sitelink_${linkIndexStr}`;
   } else {
     switch (componentName) {
       case "SearchResults":
-        pageId = `organic_${linkIndex}`;
+        pageId = `organic_${linkIndexStr}`;
         break;
       case "SearchResults-Sitelinks":
-        pageId = `sitelink_${linkIndex}`;
+        pageId = `sitelink_${linkIndexStr}`;
         break;
       case "AiOverview":
       case "AiOverview-References":
-        pageId = `overview_ref_${linkIndex}`;
+        pageId = `overview_ref_${linkIndexStr}`;
         fromOverview = true;
         break;
       case "AiMode-Sidebar":
       case "AIMode":
-        pageId = `ai_mode_ref_${linkIndex}`;
+        pageId = `ai_mode_ref_${linkIndexStr}`;
         fromAiMode = true;
         break;
       case "SearchTabs":
-        pageId = `tab_${linkIndex}`;
+        pageId = `tab_${linkIndexStr}`;
         break;
       case "PeopleAlsoSearch":
-        pageId = `related_${linkIndex}`;
+        pageId = `related_${linkIndexStr}`;
         break;
       case "Video":
-        pageId = `video_${linkIndex}`;
+        pageId = `video_${linkIndexStr}`;
         break;
       case "DiscussionsForums":
       case "DiscussionsAndForums":
-        pageId = `discussion_${linkIndex}`;
+        pageId = `discussion_${linkIndexStr}`;
         break;
       case "clickPagination_":
-        pageId = `pagination_${linkIndex}`;
+        pageId = `pagination_${linkIndexStr}`;
         break;
       case "ReferenceLink":
-        pageId = `reference_link_${linkIndex}`;
+        pageId = `reference_link_${linkIndexStr}`;
         break;
       default:
-        pageId = `other_${linkIndex}`;
+        pageId = `other_${linkIndexStr}`;
     }
   }
 
