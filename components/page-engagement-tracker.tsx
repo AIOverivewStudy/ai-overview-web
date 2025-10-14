@@ -68,7 +68,7 @@ interface TrackerState {
 }
 
 const DEFAULT_CONFIG: Required<EngagementTrackerConfig> = {
-  inactivityThreshold: 10000,
+  inactivityThreshold: 5000,
   heartbeatInterval: 10000,
   throttleDelay: 100, // 100ms
   debounceDelay: 100, // 100ms
@@ -657,6 +657,7 @@ export function PageEngagementTracker({
     finalConfig.throttleDelay,
     finalConfig.debounceDelay,
     finalConfig.heartbeatInterval,
+    finalConfig.inactivityThreshold,
   ]);
 
   // 这个组件不渲染任何UI

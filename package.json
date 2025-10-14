@@ -15,7 +15,8 @@
     "prisma:dev:pull": "dotenv -e .env.local -- npx prisma db pull",
     "prisma:prod:validate": "dotenv -e .env -- npx prisma validate",
     "prisma:prod:deploy": "dotenv -e .env -- npx prisma migrate deploy",
-    "prisma:prod:pull": "dotenv -e .env -- npx prisma db pull"
+    "prisma:prod:pull": "dotenv -e .env -- npx prisma db pull",
+    "prisma:prod:studio": "dotenv -e .env -- npx prisma studio"
   },
   "dependencies": {
     "@prisma/client": "^6.12.0",
