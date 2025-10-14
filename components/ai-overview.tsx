@@ -449,7 +449,7 @@ export function AiOverview() {
                               <TrackedLink
                                 href={ref.link}
                                 componentName="AiOverview-References"
-                                linkIndex={`0-${index + 1}`}
+                                linkIndex={`0_${index + 1}`}
                               >{ref.title}</TrackedLink>
                             </h3>
                             <p className="text-sm text-gray-700 mt-1 line-clamp-2">{ref.snippet}</p>
@@ -500,7 +500,7 @@ export function AiOverview() {
                             <TrackedLink
                               href={ref.link}
                               componentName="AiOverview-References"
-                              linkIndex={`0-${index + 1}`}
+                              linkIndex={`0_${index + 1}`}
                             >
                               {ref.title}
                             </TrackedLink>
@@ -579,7 +579,7 @@ export function AiOverview() {
                                 <TrackedLink
                                   href={ref.link}
                                   componentName="AiOverview-References"
-                                  linkIndex={`0-${index + 1}`}
+                                  linkIndex={`0_${index + 1}`}
                                 >
                                   {ref.title}
                                 </TrackedLink>
@@ -639,7 +639,7 @@ export function AiOverview() {
                               <TrackedLink
                                 href={ref.link}
                                 componentName="AiOverview-References"
-                                linkIndex={`0-${index + 1}`}
+                                linkIndex={`0_${index + 1}`}
                               >
                                 {ref.title}
                               </TrackedLink>
@@ -713,7 +713,7 @@ export function AiOverview() {
                                   <TrackedLink
                                     href={ref.link}
                                     componentName="AiOverview-References"
-                                    linkIndex={`${currentGlobalReferenceIndex || 0}-${index + 1}`}
+                                    linkIndex={`${currentGlobalReferenceIndex || 0}_${index + 1}`}
                                   >
                                     {ref.title}
                                   </TrackedLink>

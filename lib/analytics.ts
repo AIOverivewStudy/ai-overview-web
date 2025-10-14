@@ -516,7 +516,7 @@ export const trackLinkClick = async (
   }
 
   // Convert linkIndex to string format
-  // For string format like "0-1" or "3-2", keep as is
+  // For string format like "0_1" or "3_2", keep as is
   // For number format, add 1 (for non-reference components)
   let linkIndexStr: string;
   if (typeof linkIndex === "number") {

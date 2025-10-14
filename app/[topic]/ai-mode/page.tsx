@@ -617,7 +617,7 @@ export default function AiModePage() {
                               <h3 className="text-blue-700 hover:underline text-base font-medium">
                                 <TrackedLink
                                   componentName="AIMode"
-                                  linkIndex={`0-${index + 1}`}
+                                  linkIndex={`0_${index + 1}`}
                                   href={ref.link}
                                 >
                                   {ref.title}
@@ -713,7 +713,7 @@ export default function AiModePage() {
                                     <h3 className="text-blue-700 hover:underline text-base font-medium">
                                       <TrackedLink
                                         componentName="AIMode"
-                                        linkIndex={`${currentGlobalReferenceIndex || 0}-${index + 1}`}
+                                        linkIndex={`${currentGlobalReferenceIndex || 0}_${index + 1}`}
                                         href={ref.link}
                                       >
                                         {ref.title}
