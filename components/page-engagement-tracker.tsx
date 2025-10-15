@@ -5,27 +5,24 @@ import { getCurrentTaskSession } from "@/lib/analytics";
 import type { TaskSession } from "@/types/api";
 
 interface EngagementMetrics {
-  totalTimeOnPage: number;
-  activeTime: number;
-  idleTime: number;
+  totalTimeOnTask: number;  // 当前页面访问的总时间
+  activeTime: number;       // 当前页面访问的活跃时间
+  idleTime: number;         // 当前页面访问的空闲时间
   visibilityChanges: number;
-  scrollDepth: number;
+  maxScrollDepth: number;   // 当前页面访问的最大滚动深度
   interactions: number;
-  sessionStart: number;
+  sessionStart: number;     // 当前页面访问的开始时间
   lastActivity: number;
 }
 
 interface EngagementData extends EngagementMetrics {
-  url: string;
   userAgent: string;
-  referrer: string;
 }
 
 interface EngagementEvent {
   type: "page_engagement";
   data: EngagementData;
-  taskSession?: TaskSession | null;
-  pageContext?: string;
+  participant_id: string;  // ✅ 只需要 RID
 }
 
 interface PageState {
@@ -39,6 +36,11 @@ interface PageState {
 interface TimerRefs {
   activityTimer: NodeJS.Timeout | null;
   heartbeatTimer: NodeJS.Timeout | null;
+  firstHeartbeatTimer: NodeJS.Timeout | null;
+}
+
+interface RequestControl {
+  abortController: AbortController | null;
 }
 
 interface EngagementTrackerConfig {
@@ -63,15 +65,16 @@ interface TrackerState {
   isTracking: boolean;
   hasError: boolean;
   lastError?: Error;
+  finalDataSent: boolean; // 防止重复发送最终数据
 }
 
 const DEFAULT_CONFIG: Required<EngagementTrackerConfig> = {
-  inactivityThreshold: 5000,
-  heartbeatInterval: 10000,
-  throttleDelay: 100, // 100ms
-  debounceDelay: 100, // 100ms
+  inactivityThreshold: 5000,    // 5s 无活动视为空闲
+  heartbeatInterval: 10000,     // 10s 发送一次心跳
+  throttleDelay: 100,           // 节流延迟 100ms
+  debounceDelay: 100,           // 防抖延迟 100ms
   apiEndpoint: "/api/analytics/engagement",
-  enableConsoleLogging: true, // 🔥 启用详细日志
+  enableConsoleLogging: true,   // 启用详细日志（生产环境可关闭）
 };
 
 interface PageEngagementTrackerProps {
@@ -87,11 +90,11 @@ export function PageEngagementTracker({
   );
 
   const engagementData = useRef<EngagementMetrics>({
-    totalTimeOnPage: 0,
+    totalTimeOnTask: 0,
     activeTime: 0,
     idleTime: 0,
     visibilityChanges: 0,
-    scrollDepth: 0,
+    maxScrollDepth: 0,
     interactions: 0,
     sessionStart: Date.now(),
     lastActivity: Date.now(),
@@ -100,6 +103,11 @@ export function PageEngagementTracker({
   const timers = useRef<TimerRefs>({
     activityTimer: null,
     heartbeatTimer: null,
+    firstHeartbeatTimer: null,
+  });
+
+  const requestControl = useRef<RequestControl>({
+    abortController: null,
   });
 
   const state = useRef<PageState>({
@@ -114,12 +122,14 @@ export function PageEngagementTracker({
     isInitialized: false,
     isTracking: false,
     hasError: false,
+    finalDataSent: false,
   });
 
   // 当前任务会话信息
   const taskSession = useRef<TaskSession | null>(null);
 
-  // 工具函数：节流
+  // 🛠️ 工具函数：节流（Throttle）
+  // 限制函数在指定时间内只能执行一次（用于高频事件如 scroll）
   const throttle = useCallback(
     <T extends unknown[]>(func: (...args: T) => void, limit: number) => {
       let inThrottle = false;
@@ -134,7 +144,8 @@ export function PageEngagementTracker({
     [],
   );
 
-  // 工具函数：防抖
+  // 🛠️ 工具函数：防抖（Debounce）
+  // 延迟执行函数，如果在延迟期间再次调用，则重新计时（用于减少调用频率）
   const debounce = useCallback(
     <T extends unknown[]>(func: (...args: T) => void, delay: number) => {
       let timeoutId: NodeJS.Timeout;
@@ -145,17 +156,6 @@ export function PageEngagementTracker({
     },
     [],
   );
-
-  // 获取当前页面上下文
-  const getCurrentPageContext = useCallback(() => {
-    const url = window.location.href;
-    if (url.includes("/ai-mode")) {
-      return "ai_mode";
-    } else if (url.includes("search") || url.includes("topic")) {
-      return "search_results";
-    }
-    return "other";
-  }, []);
 
   // 记录错误
   const logError = useCallback(
@@ -174,19 +174,36 @@ export function PageEngagementTracker({
   const sendEngagementData = useCallback(
     async (finalData = false) => {
       if (!trackerState.current.isTracking) return;
+      
+      // 🛡️ 防止重复发送最终数据
+      if (finalData && trackerState.current.finalDataSent) {
+        if (finalConfig.enableConsoleLogging) {
+          console.log("⏭️ [Engagement] Final data already sent, skipping duplicate");
+        }
+        return;
+      }
+
+      // 🚫 如果是最终数据，先取消所有进行中的请求
+      if (finalData && requestControl.current.abortController) {
+        if (finalConfig.enableConsoleLogging) {
+          console.log("🚫 [Engagement] Aborting in-flight requests for final data");
+        }
+        requestControl.current.abortController.abort();
+        requestControl.current.abortController = null;
+      }
 
       try {
         const currentTime = Date.now();
         const data = engagementData.current;
         const beforeActiveTime = data.activeTime; // 记录更新前的值
 
-        // 计算总停留时间
-        data.totalTimeOnPage = currentTime - data.sessionStart;
+        // 📊 前端只计算【当前页面访问】的增量数据
+        // 后端会负责累加到数据库中的总值
+        data.totalTimeOnTask = currentTime - data.sessionStart;
 
         // ⏱️ ActiveTime 追踪逻辑：
         // - 只有在页面【可见】且【活跃】时才累积 activeTime
         // - lastActiveTime 记录上次累积的时间点，避免重复计算
-        // - 其他地方累积 activeTime 后也必须更新 lastActiveTime
         if (state.current.isVisible && state.current.isActive) {
           const additionalActiveTime = currentTime - state.current.lastActiveTime;
           data.activeTime += additionalActiveTime;
@@ -204,81 +221,83 @@ export function PageEngagementTracker({
           }
         }
 
-        // 🛡️ 防御性编程：确保 activeTime 不超过 totalTimeOnPage
-        // 理论上修复了重复累积问题后不应该出现，但保留作为安全网
-        if (data.activeTime > data.totalTimeOnPage) {
+        // 🛡️ 防御性编程：确保 activeTime 不超过 totalTimeOnTask
+        if (data.activeTime > data.totalTimeOnTask) {
           if (finalConfig.enableConsoleLogging) {
-            console.warn("⚠️ [ActiveTime] activeTime exceeded totalTimeOnPage!", {
+            console.warn("⚠️ [ActiveTime] activeTime exceeded totalTimeOnTask!", {
               activeTime: Math.round(data.activeTime / 1000) + "s",
-              totalTimeOnPage: Math.round(data.totalTimeOnPage / 1000) + "s",
-              difference: Math.round((data.activeTime - data.totalTimeOnPage) / 1000) + "s",
-              correcting: "Capping activeTime to totalTimeOnPage",
-              note: "This should not happen if tracking logic is correct",
+              totalTimeOnTask: Math.round(data.totalTimeOnTask / 1000) + "s",
+              difference: Math.round((data.activeTime - data.totalTimeOnTask) / 1000) + "s",
+              correcting: "Capping activeTime to totalTimeOnTask",
             });
           }
-          data.activeTime = data.totalTimeOnPage;
+          data.activeTime = data.totalTimeOnTask;
         }
         
         // 计算空闲时间 = 总时间 - 活跃时间
-        data.idleTime = Math.max(0, data.totalTimeOnPage - data.activeTime);
+        data.idleTime = Math.max(0, data.totalTimeOnTask - data.activeTime);
 
-        // 更新滚动深度
-        data.scrollDepth = Math.max(
-          data.scrollDepth,
+        // 更新最大滚动深度
+        data.maxScrollDepth = Math.max(
+          data.maxScrollDepth,
           state.current.maxScrollDepth,
         );
 
+        // 构建上报数据（简化版）
         const engagementDataFull: EngagementData = {
           ...data,
-          url: window.location.href,
           userAgent: navigator.userAgent,
-          referrer: document.referrer || "",
         };
 
-        const eventData: EngagementEvent = {
+        // 验证 taskSession 存在
+        if (!taskSession.current || !taskSession.current.participant_id) {
+          console.error("❌ [Engagement] No valid task session or participant_id available");
+          return;
+        }
+
+        const payload: EngagementEvent = {
           type: "page_engagement",
           data: engagementDataFull,
+          participant_id: taskSession.current.participant_id, // ✅ 只传 RID
         };
 
-        // 添加任务会话信息
-        const payloadWithTask = {
-          ...eventData,
-          taskSession: taskSession.current,
-          pageContext: getCurrentPageContext(),
-        };
-
-        const engagementRate = data.totalTimeOnPage > 0 
-          ? (data.activeTime / data.totalTimeOnPage) * 100 
+        const engagementRate = data.totalTimeOnTask > 0 
+          ? (data.activeTime / data.totalTimeOnTask) * 100 
           : 0;
 
         if (finalConfig.enableConsoleLogging) {
           console.log("📊 [PageEngagement] " + (finalData ? "🔴 FINAL DATA" : "💓 Heartbeat"), {
             timestamp: new Date().toISOString(),
-            taskId: taskSession.current?.task_id,
-            participantId: taskSession.current?.participant_id,
-            url: window.location.href,
+            participantId: taskSession.current.participant_id,
+            taskId: taskSession.current.task_id,
             metrics: {
-              totalTime: Math.round(data.totalTimeOnPage / 1000) + "s",
+              totalTime: Math.round(data.totalTimeOnTask / 1000) + "s",
               activeTime: Math.round(data.activeTime / 1000) + "s",
               idleTime: Math.round(data.idleTime / 1000) + "s",
               engagementRate: Math.round(engagementRate * 100) / 100 + "%",
-              scrollDepth: data.scrollDepth + "%",
+              maxScrollDepth: data.maxScrollDepth + "%",
               interactions: data.interactions,
               visibilityChanges: data.visibilityChanges,
             },
             state: {
               isVisible: state.current.isVisible,
               isActive: state.current.isActive,
-              pageContext: getCurrentPageContext(),
             },
           });
         }
 
         // 使用 sendBeacon 确保数据能够发送，即使在页面卸载时
         if (navigator.sendBeacon && finalData) {
+          // 标记最终数据已发送（在发送前标记，防止并发）
+          trackerState.current.finalDataSent = true;
+          
+          // 创建带有正确 Content-Type 的 Blob
+          const blob = new Blob([JSON.stringify(payload)], {
+            type: "application/json",
+          });
           const success = navigator.sendBeacon(
             finalConfig.apiEndpoint,
-            JSON.stringify(payloadWithTask),
+            blob,
           );
           if (!success && finalConfig.enableConsoleLogging) {
             console.warn(
@@ -287,20 +306,43 @@ export function PageEngagementTracker({
           }
         } else {
           // 常规情况下使用 fetch
+          // 🔄 为非最终数据创建 AbortController，这样可以在页面卸载时取消
+          if (!finalData) {
+            requestControl.current.abortController = new AbortController();
+          }
+          
           const response = await fetch(finalConfig.apiEndpoint, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
             },
-            body: JSON.stringify(payloadWithTask),
+            body: JSON.stringify(payload),
             keepalive: finalData, // 页面卸载时保持请求活跃
+            signal: !finalData ? requestControl.current.abortController?.signal : undefined,
           });
 
           if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
           }
+          
+          // 清除 AbortController（请求成功完成）
+          if (!finalData) {
+            requestControl.current.abortController = null;
+          }
+          
+          // 标记最终数据已发送
+          if (finalData) {
+            trackerState.current.finalDataSent = true;
+          }
         }
       } catch (error) {
+        // 忽略 AbortError（这是预期的取消行为）
+        if (error instanceof Error && error.name === 'AbortError') {
+          if (finalConfig.enableConsoleLogging) {
+            console.log("🚫 [Engagement] Request aborted (expected)");
+          }
+          return;
+        }
         logError(error as Error, "Failed to send engagement data");
       }
     },
@@ -308,7 +350,6 @@ export function PageEngagementTracker({
       finalConfig.apiEndpoint,
       finalConfig.enableConsoleLogging,
       logError,
-      getCurrentPageContext,
     ],
   );
 
@@ -497,17 +538,24 @@ export function PageEngagementTracker({
           initialState: {
             isVisible: state.current.isVisible,
             isActive: state.current.isActive,
-            pageContext: getCurrentPageContext(),
           },
         });
       }
     } catch (error) {
       logError(error as Error, "Failed to initialize tracker");
     }
-  }, [finalConfig, logError, getCurrentPageContext]);
+  }, [finalConfig, logError]);
 
   // 清理追踪器
   const cleanupTracker = useCallback(() => {
+    // 🛡️ 防止重复清理
+    if (trackerState.current.finalDataSent) {
+      if (finalConfig.enableConsoleLogging) {
+        console.log("⏭️ [Cleanup] Already cleaned up, skipping");
+      }
+      return;
+    }
+    
     if (finalConfig.enableConsoleLogging) {
       console.log("🧹 [Cleanup] Starting cleanup...", {
         timestamp: new Date().toISOString(),
@@ -515,9 +563,32 @@ export function PageEngagementTracker({
       });
     }
 
+    // 🚫 第一步：立即停止追踪并清除所有定时器
     trackerState.current.isTracking = false;
+    
+    if (timers.current.activityTimer) {
+      clearTimeout(timers.current.activityTimer);
+      timers.current.activityTimer = null;
+    }
+    if (timers.current.heartbeatTimer) {
+      clearInterval(timers.current.heartbeatTimer);
+      timers.current.heartbeatTimer = null;
+    }
+    if (timers.current.firstHeartbeatTimer) {
+      clearTimeout(timers.current.firstHeartbeatTimer);
+      timers.current.firstHeartbeatTimer = null;
+    }
 
-    // 发送最终数据
+    // 🚫 第二步：取消所有进行中的请求
+    if (requestControl.current.abortController) {
+      if (finalConfig.enableConsoleLogging) {
+        console.log("🚫 [Cleanup] Aborting in-flight requests");
+      }
+      requestControl.current.abortController.abort();
+      requestControl.current.abortController = null;
+    }
+
+    // ⏱️ 第三步：计算最终活跃时间
     if (state.current.isActive && state.current.isVisible) {
       const currentTime = Date.now();
       const finalActiveTime = currentTime - state.current.lastActiveTime;
@@ -531,28 +602,19 @@ export function PageEngagementTracker({
       }
     }
     
+    // 📤 第四步：发送最终数据（这会被标记，防止重复）
     if (finalConfig.enableConsoleLogging) {
       console.log("📤 [Cleanup] Sending final engagement data...");
     }
     sendEngagementData(true);
 
-    // 清理定时器
-    if (timers.current.activityTimer) {
-      clearTimeout(timers.current.activityTimer);
-      timers.current.activityTimer = null;
-    }
-    if (timers.current.heartbeatTimer) {
-      clearInterval(timers.current.heartbeatTimer);
-      timers.current.heartbeatTimer = null;
-    }
-
     if (finalConfig.enableConsoleLogging) {
       console.log("✅ [Cleanup] Tracker cleaned up successfully", {
         finalMetrics: {
-          totalTime: Math.round(engagementData.current.totalTimeOnPage / 1000) + "s",
+          totalTime: Math.round(engagementData.current.totalTimeOnTask / 1000) + "s",
           activeTime: Math.round(engagementData.current.activeTime / 1000) + "s",
           interactions: engagementData.current.interactions,
-          scrollDepth: state.current.maxScrollDepth + "%",
+          maxScrollDepth: state.current.maxScrollDepth + "%",
         },
       });
     }
@@ -604,49 +666,40 @@ export function PageEngagementTracker({
     });
 
     // 心跳计时器 - 定期发送数据
+    // 延迟第一次发送，避免与旧页面的 cleanup 请求冲突
+    timers.current.firstHeartbeatTimer = setTimeout(() => {
+      if (state.current.isVisible && trackerState.current.isTracking) {
+        sendEngagementData(false);
+      }
+    }, 2000); // 延迟 2 秒发送第一次
+    
     timers.current.heartbeatTimer = setInterval(() => {
       if (state.current.isVisible && trackerState.current.isTracking) {
         sendEngagementData(false);
       }
     }, finalConfig.heartbeatInterval);
 
-    // 页面卸载事件处理
-    const handleBeforeUnload = () => {
-      if (state.current.isActive && state.current.isVisible) {
-        const currentTime = Date.now();
-        engagementData.current.activeTime +=
-          currentTime - state.current.lastActiveTime;
+    // 🎯 页面卸载事件处理 - 只使用 pagehide（最可靠）
+    // pagehide 在所有浏览器中都会触发，包括移动端的 bfcache 场景
+    const handlePageHide = (event: PageTransitionEvent) => {
+      if (finalConfig.enableConsoleLogging) {
+        console.log("👋 [PageHide] Page is being hidden/unloaded", {
+          persisted: event.persisted, // 是否进入 bfcache
+        });
       }
-      sendEngagementData(true);
+      cleanupTracker();
     };
 
-    const handleUnload = () => {
-      sendEngagementData(true);
-    };
-
-    const handlePageHide = () => {
-      if (state.current.isActive && state.current.isVisible) {
-        const currentTime = Date.now();
-        engagementData.current.activeTime +=
-          currentTime - state.current.lastActiveTime;
-      }
-      sendEngagementData(true);
-    };
-
-    // 注册卸载事件
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    window.addEventListener("unload", handleUnload);
+    // 注册卸载事件（只用一个）
     window.addEventListener("pagehide", handlePageHide);
 
-    // 清理函数
+    // 清理函数（React 组件卸载时调用）
     return () => {
       cleanupTracker();
 
       // 移除事件监听器
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("focus", handleUserActivity);
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-      window.removeEventListener("unload", handleUnload);
       window.removeEventListener("pagehide", handlePageHide);
 
       activityEvents.forEach((event) => {
