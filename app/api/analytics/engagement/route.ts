@@ -15,7 +15,6 @@ interface EngagementData {
   url: string;
   userAgent: string;
   referrer: string;
-  sessionId: string;
 }
 
 interface TaskSession {
@@ -59,7 +58,6 @@ export async function POST(request: NextRequest) {
       url,
       userAgent,
       referrer,
-      sessionId,
     } = body.data;
 
     const { taskSession, pageContext } = body;
@@ -116,7 +114,6 @@ export async function POST(request: NextRequest) {
       taskId: taskSession?.task_id,
       participantId: taskSession?.participant_id,
       url: url,
-      sessionId: sessionId,
       totalTime: `${Math.round(totalTimeOnPage / 1000)}s`,
       activeTime: `${Math.round(correctedActiveTime / 1000)}s`,
       idleTime: `${Math.round(correctedIdleTime / 1000)}s`,
@@ -139,7 +136,7 @@ export async function POST(request: NextRequest) {
         });
 
         client.capture({
-          distinctId: taskSession?.participant_id || sessionId,
+          distinctId: taskSession?.participant_id || "anonymous",
           event: "page_engagement_detailed",
           properties: {
             task_id: taskSession?.task_id,
@@ -180,14 +177,15 @@ export async function POST(request: NextRequest) {
         });
 
         if (taskRecord) {
-          // 使用upsert根据sessionId更新或创建记录
+          // 使用upsert根据 task_record_id + url 更新或创建记录
+          // 每个 participant 在整个任务期间，同一个 URL 只有一条记录
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           savedRecord = await (prisma as any).pageEngagement.upsert({
             where: {
-              // 复合唯一键：sessionId + task_record_id
-              session_id_task_record_id: {
-                session_id: sessionId,
+              // 复合唯一键：task_record_id + url
+              task_record_id_url: {
                 task_record_id: taskRecord.id,
+                url: url,
               },
             },
             update: {
@@ -208,7 +206,6 @@ export async function POST(request: NextRequest) {
             create: {
               task_record_id: taskRecord.id,
               task_id: taskSession.task_id,
-              session_id: sessionId,
               url,
               referrer: referrer || null,
               user_agent: userAgent,
@@ -230,7 +227,7 @@ export async function POST(request: NextRequest) {
             env: process.env.NODE_ENV,
             id: savedRecord.id,
             taskId: savedRecord.task_id,
-            sessionId: savedRecord.session_id,
+            url: savedRecord.url,
             activeTimeSeconds: Math.round(savedRecord.active_time / 1000),
           });
         } else {
@@ -259,7 +256,7 @@ export async function POST(request: NextRequest) {
         summary: {
           taskId: taskSession?.task_id,
           participantId: taskSession?.participant_id,
-          sessionId: sessionId,
+          url: url,
           activeTimeSeconds: Math.round(activeTime / 1000),
           engagementRate: Math.round(engagementRate * 100) / 100,
           savedToDatabase: savedRecord !== null,

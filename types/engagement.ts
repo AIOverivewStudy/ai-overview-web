@@ -13,7 +13,6 @@ export interface EngagementContext {
   url: string;
   userAgent: string;
   referrer: string;
-  sessionId: string;
   clientIP?: string;
   timestamp?: string;
 }
@@ -56,7 +55,6 @@ export interface EngagementSession {
 
 export interface AnalyticsData {
   timestamp: string;
-  sessionId: string;
   url: string;
   referrer: string;
   userAgent: string;
@@ -73,7 +71,7 @@ export interface EngagementApiResponse {
   summary?: {
     taskId?: string;
     participantId?: string;
-    sessionId: string;
+    url: string;
     activeTimeSeconds: number;
     engagementRate: number;
     savedToDatabase: boolean;
@@ -88,7 +86,6 @@ export interface PageState {
   lastActiveTime: number;
   lastVisibilityChange: number;
   maxScrollDepth: number;
-  sessionId: string;
 }
 
 // 定时器引用
@@ -138,7 +135,6 @@ export interface PageEngagementRecord {
   id: number;
   task_record_id: number;
   task_id: string;
-  session_id: string;
   url: string;
   referrer?: string;
   user_agent: string;

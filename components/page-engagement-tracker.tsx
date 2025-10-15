@@ -19,7 +19,6 @@ interface EngagementData extends EngagementMetrics {
   url: string;
   userAgent: string;
   referrer: string;
-  sessionId: string;
 }
 
 interface EngagementEvent {
@@ -35,7 +34,6 @@ interface PageState {
   lastActiveTime: number;
   lastVisibilityChange: number;
   maxScrollDepth: number;
-  sessionId: string;
 }
 
 interface TimerRefs {
@@ -110,7 +108,6 @@ export function PageEngagementTracker({
     lastActiveTime: Date.now(),
     lastVisibilityChange: Date.now(),
     maxScrollDepth: 0,
-    sessionId: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
   });
 
   const trackerState = useRef<TrackerState>({
@@ -236,7 +233,6 @@ export function PageEngagementTracker({
           url: window.location.href,
           userAgent: navigator.userAgent,
           referrer: document.referrer || "",
-          sessionId: state.current.sessionId,
         };
 
         const eventData: EngagementEvent = {
@@ -260,7 +256,7 @@ export function PageEngagementTracker({
             timestamp: new Date().toISOString(),
             taskId: taskSession.current?.task_id,
             participantId: taskSession.current?.participant_id,
-            sessionId: state.current.sessionId,
+            url: window.location.href,
             metrics: {
               totalTime: Math.round(data.totalTimeOnPage / 1000) + "s",
               activeTime: Math.round(data.activeTime / 1000) + "s",
@@ -275,7 +271,6 @@ export function PageEngagementTracker({
               isActive: state.current.isActive,
               pageContext: getCurrentPageContext(),
             },
-            url: window.location.href,
           });
         }
 
@@ -457,7 +452,6 @@ export function PageEngagementTracker({
         console.log("🚀 [Init] PageEngagementTracker starting...", {
           timestamp: new Date().toISOString(),
           url: window.location.href,
-          sessionId: state.current.sessionId,
         });
       }
 
