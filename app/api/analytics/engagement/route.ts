@@ -79,6 +79,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 修正 activeTime 和 idleTime（防止前端累积错误）
+    let correctedActiveTime = activeTime;
+    let correctedIdleTime = idleTime;
+    
+    if (activeTime > totalTimeOnPage) {
+      console.warn("⚠️ [Engagement API] activeTime exceeds totalTimeOnPage, correcting...", {
+        original_activeTime: Math.round(activeTime / 1000) + "s",
+        original_idleTime: Math.round(idleTime / 1000) + "s",
+        totalTimeOnPage: Math.round(totalTimeOnPage / 1000) + "s",
+      });
+      correctedActiveTime = totalTimeOnPage;
+      correctedIdleTime = 0;
+    } else if (idleTime < 0) {
+      console.warn("⚠️ [Engagement API] idleTime is negative, correcting...", {
+        original_idleTime: Math.round(idleTime / 1000) + "s",
+        activeTime: Math.round(activeTime / 1000) + "s",
+        totalTimeOnPage: Math.round(totalTimeOnPage / 1000) + "s",
+      });
+      correctedIdleTime = Math.max(0, totalTimeOnPage - activeTime);
+    }
+
     // 获取客户端IP和其他信息
     const clientIP =
       request.headers.get("x-forwarded-for") ||
@@ -87,7 +108,7 @@ export async function POST(request: NextRequest) {
 
     // 计算参与度指标
     const engagementRate =
-      totalTimeOnPage > 0 ? (activeTime / totalTimeOnPage) * 100 : 0;
+      totalTimeOnPage > 0 ? (correctedActiveTime / totalTimeOnPage) * 100 : 0;
 
     // 在控制台记录数据（所有环境，便于诊断）
     console.log("📊 [Engagement API] Received data:", {
@@ -97,12 +118,16 @@ export async function POST(request: NextRequest) {
       url: url,
       sessionId: sessionId,
       totalTime: `${Math.round(totalTimeOnPage / 1000)}s`,
-      activeTime: `${Math.round(activeTime / 1000)}s`,
+      activeTime: `${Math.round(correctedActiveTime / 1000)}s`,
+      idleTime: `${Math.round(correctedIdleTime / 1000)}s`,
       engagementRate: `${Math.round(engagementRate * 100) / 100}%`,
       scrollDepth: `${scrollDepth}%`,
       interactions: interactions,
       visibilityChanges: visibilityChanges,
       pageContext: pageContext,
+      ...(correctedActiveTime !== activeTime || correctedIdleTime !== idleTime 
+        ? { corrected: true, original_activeTime: `${Math.round(activeTime / 1000)}s`, original_idleTime: `${Math.round(idleTime / 1000)}s` }
+        : {}),
     });
 
     // 发送到PostHog (如果已配置)
@@ -171,8 +196,8 @@ export async function POST(request: NextRequest) {
               user_agent: userAgent,
               client_ip: clientIP,
               total_time_on_page: totalTimeOnPage,
-              active_time: activeTime,
-              idle_time: idleTime,
+              active_time: correctedActiveTime,
+              idle_time: correctedIdleTime,
               visibility_changes: visibilityChanges,
               scroll_depth: scrollDepth,
               interactions: interactions,
@@ -189,8 +214,8 @@ export async function POST(request: NextRequest) {
               user_agent: userAgent,
               client_ip: clientIP,
               total_time_on_page: totalTimeOnPage,
-              active_time: activeTime,
-              idle_time: idleTime,
+              active_time: correctedActiveTime,
+              idle_time: correctedIdleTime,
               visibility_changes: visibilityChanges,
               scroll_depth: scrollDepth,
               interactions: interactions,

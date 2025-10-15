@@ -186,7 +186,10 @@ export function PageEngagementTracker({
         // 计算总停留时间
         data.totalTimeOnPage = currentTime - data.sessionStart;
 
-        // 如果页面当前可见且活跃，更新活跃时间
+        // ⏱️ ActiveTime 追踪逻辑：
+        // - 只有在页面【可见】且【活跃】时才累积 activeTime
+        // - lastActiveTime 记录上次累积的时间点，避免重复计算
+        // - 其他地方累积 activeTime 后也必须更新 lastActiveTime
         if (state.current.isVisible && state.current.isActive) {
           const additionalActiveTime = currentTime - state.current.lastActiveTime;
           data.activeTime += additionalActiveTime;
@@ -204,8 +207,23 @@ export function PageEngagementTracker({
           }
         }
 
-        // 计算空闲时间
-        data.idleTime = data.totalTimeOnPage - data.activeTime;
+        // 🛡️ 防御性编程：确保 activeTime 不超过 totalTimeOnPage
+        // 理论上修复了重复累积问题后不应该出现，但保留作为安全网
+        if (data.activeTime > data.totalTimeOnPage) {
+          if (finalConfig.enableConsoleLogging) {
+            console.warn("⚠️ [ActiveTime] activeTime exceeded totalTimeOnPage!", {
+              activeTime: Math.round(data.activeTime / 1000) + "s",
+              totalTimeOnPage: Math.round(data.totalTimeOnPage / 1000) + "s",
+              difference: Math.round((data.activeTime - data.totalTimeOnPage) / 1000) + "s",
+              correcting: "Capping activeTime to totalTimeOnPage",
+              note: "This should not happen if tracking logic is correct",
+            });
+          }
+          data.activeTime = data.totalTimeOnPage;
+        }
+        
+        // 计算空闲时间 = 总时间 - 活跃时间
+        data.idleTime = Math.max(0, data.totalTimeOnPage - data.activeTime);
 
         // 更新滚动深度
         data.scrollDepth = Math.max(
@@ -311,6 +329,7 @@ export function PageEngagementTracker({
       if (state.current.isActive) {
         activeTimeAdded = currentTime - state.current.lastActiveTime;
         engagementData.current.activeTime += activeTimeAdded;
+        state.current.lastActiveTime = currentTime; // 🔧 修复：更新 lastActiveTime 避免重复计算
       }
       state.current.isVisible = false;
       engagementData.current.visibilityChanges++;
@@ -378,6 +397,7 @@ export function PageEngagementTracker({
         const inactiveTime = Date.now();
         const activeTimeAdded = inactiveTime - state.current.lastActiveTime;
         engagementData.current.activeTime += activeTimeAdded;
+        state.current.lastActiveTime = inactiveTime; // 🔧 修复：更新 lastActiveTime 避免重复计算
         
         if (finalConfig.enableConsoleLogging) {
           console.log("🔴 [Activity] User became INACTIVE", {
