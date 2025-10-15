@@ -9,14 +9,10 @@
     "lint": "next lint",
     "postinstall": "prisma generate",
     "prisma:deploy": "prisma migrate deploy",
-    "prisma:dev:validate": "dotenv -e .env.local -- npx prisma validate",
-    "prisma:dev:migrate": "dotenv -e .env.local -- npx prisma migrate dev",
-    "prisma:dev:studio": "dotenv -e .env.local -- npx prisma studio",
-    "prisma:dev:pull": "dotenv -e .env.local -- npx prisma db pull",
-    "prisma:prod:validate": "dotenv -e .env -- npx prisma validate",
-    "prisma:prod:deploy": "dotenv -e .env -- npx prisma migrate deploy",
-    "prisma:prod:pull": "dotenv -e .env -- npx prisma db pull",
-    "prisma:prod:studio": "dotenv -e .env -- npx prisma studio"
+    "prisma:validate": "dotenv -e .env.local -- npx prisma validate",
+    "prisma:migrate": "dotenv -e .env.local -- npx prisma migrate dev",
+    "prisma:studio": "dotenv -e .env.local -- npx prisma studio",
+    "prisma:pull": "dotenv -e .env.local -- npx prisma db pull"
   },
   "dependencies": {
     "@prisma/client": "^6.12.0",

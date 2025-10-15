@@ -89,26 +89,25 @@ model PageEngagement {
   id                   Int        @id @default(autoincrement())
   task_record_id       Int
   task_id              String
-  session_id           String     // 保持原有的sessionId用于前端关联
-  url                  String
+  url                  String     // 最初访问的 URL，后续不再更新
   referrer             String?
   user_agent           String
   client_ip            String?
-  total_time_on_page   Int        // 毫秒
-  active_time          Int        // 毫秒
-  idle_time            Int        // 毫秒
+  total_time_on_page   Int        // 毫秒 - 累积整个任务期间在此 URL 的时间
+  active_time          Int        // 毫秒 - 累积活跃时间
+  idle_time            Int        // 毫秒 - 累积空闲时间
   visibility_changes   Int        @default(0)
-  scroll_depth         Int        @default(0) // 百分比
-  interactions         Int        @default(0)
+  scroll_depth         Int        @default(0) // 百分比 - 保留最大滚动深度
+  interactions         Int        @default(0) // 累积交互次数
   engagement_rate      Float      // 参与度百分比
-  session_start        DateTime   @db.Timestamptz
-  last_activity        DateTime   @db.Timestamptz
+  session_start        DateTime   @db.Timestamptz // 第一次访问时间
+  last_activity        DateTime   @db.Timestamptz // 最后一次活动时间
   page_context         String?    // "search_results" | "ai_mode"
   created_at           DateTime   @default(now()) @db.Timestamptz
   updated_at           DateTime   @updatedAt @db.Timestamptz
 
   taskRecord           TaskRecord @relation(fields: [task_record_id], references: [id], onDelete: Cascade)
 
-  @@unique([session_id, task_record_id], name: "session_id_task_record_id")
+  @@unique([task_record_id, url], name: "task_record_id_url")
   @@map("page_engagements")
 }
